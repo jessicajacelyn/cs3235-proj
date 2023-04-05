@@ -1,15 +1,17 @@
-// This file is part of the project for the module CS3235 by Prateek 
+// This file is part of the project for the module CS3235 by Prateek
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
 /// This file contains the definition of the BlockTree
 /// The BlockTree is a data structure that stores all the blocks that have been mined by this node or received from other nodes.
 /// The longest path in the BlockTree is the main chain. It is the chain from the root to the working_block_id.
-
 use core::panic;
-use std::{collections::{BTreeMap, HashMap, HashSet}, convert};
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256, Digest, digest::block_buffer::Block};
+use serde::{Deserialize, Serialize};
+use sha2::{digest::block_buffer::Block, Digest, Sha256};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    convert,
+};
 
 pub type UserId = String;
 pub type BlockId = String;
@@ -18,72 +20,105 @@ pub type TxId = String;
 
 /// Merkle tree is used to verify the integrity of transactions in a block.
 /// It is generated from a list of transactions. It will be stored inside `Transactions` struct.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)] 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct MerkleTree {
     /// A list of lists of hashes, where the first list is the list of hashes of the transactions,
-    /// the second list is the list of hashes of the first list, and so on. 
+    /// the second list is the list of hashes of the first list, and so on.
     /// See the `create_merkle_tree` function for more details.
-    pub hashes: Vec<Vec<String>>
+    pub hashes: Vec<Vec<String>>,
 }
 
-impl MerkleTree {    
+impl MerkleTree {
     /// Create a merkle tree from a list of transactions.
-    /// The merkle tree is a list of lists of hashes, 
+    /// The merkle tree is a list of lists of hashes,
     /// where the first list is the list of hashes of the transactions.
     /// The last list is the list with only one hash, called the Merkle root.
     /// - `txs`: a list of transactions
     /// - The return value is the root hash of the merkle tree
-    pub fn create_merkle_tree (txs: Vec<Transaction>) -> (String, MerkleTree) {
-        if txs.len() == 0 {
-            panic!("create_merkel_tree get empty Transaction Vector.");
+    pub fn create_merkle_tree(txs: Vec<Transaction>) -> (String, MerkleTree) {
+        if txs.is_empty() {
+            panic!("create_merkle_tree received empty transaction vector.");
         }
-        // Please fill in the blank
-        todo!();
-        
-    }
 
-    // Please fill in the blank
-    // Depending on your implementation, you may need additional functions here.
-    
+        // To create a Merkle tree from a list of transactions, you can follow these steps:
+        // Create a list of hashes of all transactions.
+        // If the number of hashes is odd, duplicate the last hash to make it even.
+        // Group the hashes into pairs and hash each pair to get a new list of hashes.
+        // If the number of hashes is still not one, repeat steps 2 and 3 until you get a single hash, which is the Merkle root.
+
+        let mut hashes: Vec<Vec<String>> = vec![txs.iter().map(|tx| tx.gen_hash()).collect()];
+
+        while hashes.last().unwrap().len() > 1 {
+            let mut level: Vec<String> = Vec::new();
+            let last_level = hashes.last().unwrap();
+
+            if last_level.len() % 2 != 0 {
+                let last_hash = last_level.last().unwrap().to_string();
+                level.push(last_hash.clone());
+            }
+
+            for i in (0..last_level.len() - 1).step_by(2) {
+                let mut hasher = Sha256::new();
+                let mut buf = [0u8; 64];
+
+                let h1 = &last_level[i];
+                let h2 = &last_level[i + 1];
+
+                buf[..32].copy_from_slice(&hex::decode(h1).unwrap());
+                buf[32..].copy_from_slice(&hex::decode(h2).unwrap());
+
+                hasher.update(&buf[..]);
+                let result = hasher.finalize();
+
+                level.push(hex::encode(result));
+            }
+
+            hashes.push(level);
+        }
+
+        let root = hashes.last().unwrap()[0].clone();
+        let tree = MerkleTree { hashes };
+
+        (root, tree)
+    }
 }
 
-/// The struct containing a list of transactions and the merkle tree of the transactions. 
+/// The struct containing a list of transactions and the merkle tree of the transactions.
 /// Each block will contain one `Transactions` struct.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)] 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Transactions {
     /// The merkle tree of the transactions
     pub merkle_tree: MerkleTree,
     /// A list of transactions
-    pub transactions: Vec<Transaction>
+    pub transactions: Vec<Transaction>,
 }
-
 
 /// The struct is used to store the information of one transaction.
 /// The transaction id is not stored explicitly, but can be generated from the transaction using the `gen_hash` function.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)] 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Transaction {
     /// The user_id of the sender
     pub sender: UserId,
     /// The user_id of the receiver
     pub receiver: UserId,
-    /// The message of the transaction. 
-    /// The expected format is `SEND $300   // By Alice   // 1678173972743`, 
+    /// The message of the transaction.
+    /// The expected format is `SEND $300   // By Alice   // 1678173972743`,
     /// where `300` is the amount of money to be sent,
     /// and the part after the first `//` is the comment: `Alice` is the friendly name of the sender, and `1678173972743` is the timestamp of the transaction.
     /// The comment part does not affect the validity of the transaction nor the computation of the balance.
     pub message: String,
     /// The signature of the transaction in base64 format
-    pub sig: Signature
+    pub sig: Signature,
 }
 
 impl Transaction {
     /// Create a new transaction struct given the sender, receiver, message, and signature.
     pub fn new(sender: UserId, receiver: UserId, message: String, sig: Signature) -> Transaction {
-        Transaction { 
-            sender, 
-            receiver, 
+        Transaction {
+            sender,
+            receiver,
             message,
-            sig
+            sig,
         }
     }
 
@@ -103,10 +138,8 @@ impl Transaction {
         // verify the signature using the sender_id as the public key (you might need to change the format into PEM)
         // You can look at the `verify` function in `bin_wallet` for reference. They should have the same functionality.
         todo!();
-        
     }
 }
-
 
 /// The struct representing a whole block tree.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -116,12 +149,12 @@ pub struct BlockTree {
     /// A map from block id to the list of its children (as block ids)
     pub children_map: HashMap<BlockId, Vec<BlockId>>,
     /// A map from block id to the depth of the block. The genesis block has depth 0.
-    pub block_depth: HashMap<BlockId, u64>, 
+    pub block_depth: HashMap<BlockId, u64>,
     /// The id of the root block (the genesis block)
     pub root_id: BlockId,
     /// The id of the working block (the block at the end of the longest chain)
     pub working_block_id: BlockId,
-    /// A map to bookkeep the orphan blocks. 
+    /// A map to bookkeep the orphan blocks.
     /// Orphan blocks are blocks whose parent are not in the block tree yet.
     /// They should be added to the block tree once they can be connected to the block tree.
     pub orphans: HashMap<BlockId, BlockNode>,
@@ -130,22 +163,22 @@ pub struct BlockTree {
     /// A map from the user id to its balance
     pub finalized_balance_map: HashMap<UserId, i64>,
     /// A set of transaction ids that have been finalized. It includes all the transaction ids in the finalized blocks.
-    pub finalized_tx_ids: HashSet<TxId>
+    pub finalized_tx_ids: HashSet<TxId>,
 }
 
 impl BlockTree {
     /// Create a new block tree with the genesis block as the root.
-    pub fn new () -> BlockTree {
-        let mut bt = BlockTree { 
-            all_blocks: HashMap::new(), 
-            children_map: HashMap::new(), 
-            block_depth: HashMap::new(), 
-            root_id: String::new(), 
-            working_block_id: String::new(), 
+    pub fn new() -> BlockTree {
+        let mut bt = BlockTree {
+            all_blocks: HashMap::new(),
+            children_map: HashMap::new(),
+            block_depth: HashMap::new(),
+            root_id: String::new(),
+            working_block_id: String::new(),
             orphans: HashMap::new(),
             finalized_block_id: String::new(),
             finalized_balance_map: HashMap::new(),
-            finalized_tx_ids: HashSet::new()
+            finalized_tx_ids: HashSet::new(),
         };
         let genesis_block = BlockNode::genesis_block();
         bt.all_blocks.insert("0".to_string(), genesis_block.clone());
@@ -153,7 +186,10 @@ impl BlockTree {
         bt.root_id = "0".to_string();
         bt.working_block_id = "0".to_string();
         for tx in genesis_block.transactions_block.transactions {
-            let amount = tx.message.split(" ").collect::<Vec<&str>>()[1].trim_start_matches('$').parse::<i64>().unwrap();
+            let amount = tx.message.split(" ").collect::<Vec<&str>>()[1]
+                .trim_start_matches('$')
+                .parse::<i64>()
+                .unwrap();
             bt.finalized_balance_map.insert(tx.receiver, amount);
         }
         bt.finalized_block_id = "0".to_string();
@@ -162,34 +198,31 @@ impl BlockTree {
 
     /// Add a block to the block tree. If the block is not valid to be added to the tree
     /// (i.e. it does not satsify the conditions below), ignore the block. Otherwise, add the block to the BlockTree.
-    /// 
+    ///
     /// 1. The block must have a valid nonce and the hash in the puzzle solution satisfies the difficulty requirement.
     /// 2. The block_id of the block must be equal to the computed hash in the puzzle solution.
     /// 3. The block does not exist in the block tree or the orphan map.
     /// 4. The transactions in the block must be valid. See the `verify_sig` function in the `Transaction` struct for details.
-    /// 5. The parent of the block must exist in the block tree. 
-    ///     Otherwise, it will be bookkeeped in the orphans map. 
+    /// 5. The parent of the block must exist in the block tree.
+    ///     Otherwise, it will be bookkeeped in the orphans map.
     ///     When the parent block is added to the block tree, the block will be removed from the orphan map and checked against the conditions again.
     /// 6. The transactions in the block must not be duplicated with any transactions in its ancestor blocks.
     /// 7. Each sender in the txs in the block must have enough balance to pay for the transaction.
-    ///    Conceptually, the balance of one address is the sum of the money sent to the address minus the money sent from the address 
+    ///    Conceptually, the balance of one address is the sum of the money sent to the address minus the money sent from the address
     ///    when walking from the genesis block to this block, according to the order of the txs in the blocks.
     ///    Mining reward is a constant of $10 (added to the reward_receiver address **AFTER** considering transactions in the block).
-    /// 
-    /// When a block is successfully added to the block tree, update the related fields in the BlockTree struct 
+    ///
+    /// When a block is successfully added to the block tree, update the related fields in the BlockTree struct
     /// (e.g., working_block_id, finalized_block_id, finalized_balance_map, finalized_tx_ids, block_depth, children_map, all_blocks, etc)
     pub fn add_block(&mut self, block: BlockNode, leading_zero_len: u16) -> () {
         // Please fill in the blank
         todo!();
-        
     }
-
 
     /// Get the block node by the block id if exists. Otherwise, return None.
     pub fn get_block(&self, block_id: BlockId) -> Option<BlockNode> {
         // Please fill in the blank
         todo!();
-        
     }
 
     /// Get the finalized blocks on the longest path after the given block id, from the oldest to the most recent.
@@ -198,23 +231,20 @@ impl BlockTree {
     pub fn get_finalized_blocks_since(&self, since_block_id: BlockId) -> Vec<BlockNode> {
         // Please fill in the blank
         todo!();
-        
     }
 
     /// Get the pending transactions on the longest chain that are confirmed but not finalized.
     pub fn get_pending_finalization_txs(&self) -> Vec<Transaction> {
         // Please fill in the blank
         todo!();
-        
     }
 
     /// Get status information of the BlockTree for debug printing.
     pub fn get_status(&self) -> BTreeMap<String, String> {
         // Please fill in the blank
-        // For debugging purpose, you can return any dictionary of strings as the status of the BlockTree. 
+        // For debugging purpose, you can return any dictionary of strings as the status of the BlockTree.
         // It should be displayed in the Client UI eventually.
         todo!();
-        
     }
 }
 
@@ -224,7 +254,7 @@ impl BlockTree {
 pub struct Puzzle {
     pub parent: BlockId,
     pub merkle_root: String,
-    pub reward_receiver: UserId
+    pub reward_receiver: UserId,
 }
 
 /// The struct representing a block header. Each `BlockNode` has one `BlockNodeHeader`.
@@ -254,7 +284,7 @@ pub struct BlockNode {
 }
 
 impl BlockNode {
-    /// Create the genesis block that contains the initial transactions 
+    /// Create the genesis block that contains the initial transactions
     /// (give $299792458 to the address of Alice `MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==`)
     pub fn genesis_block() -> BlockNode {
         let header = BlockNodeHeader {
@@ -267,8 +297,13 @@ impl BlockNode {
         };
 
         let transactions_block = Transactions {
-            transactions: vec![
-                Transaction::new("GENESIS".to_owned(), "MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_string(), "SEND $299792458".to_owned(), "GENESIS".to_owned())],
+            transactions: vec![Transaction::new(
+                "GENESIS".to_owned(),
+                "MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ=="
+                    .to_string(),
+                "SEND $299792458".to_owned(),
+                "GENESIS".to_owned(),
+            )],
             merkle_tree: MerkleTree { hashes: vec![] }, // Skip merkle tree generation for genesis block
         };
 
@@ -288,7 +323,5 @@ impl BlockNode {
     pub fn validate_block(&self, leading_zero_len: u16) -> (bool, BlockId) {
         // Please fill in the blank
         todo!();
-        
     }
 }
-
