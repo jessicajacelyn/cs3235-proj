@@ -1,0 +1,11 @@
+{"Notify":"# Waiting for IPC Requests ..."}
+{"Notify":"[Main] Start receiving trans thread"}
+"Initialized"
+{"ChainStatus":"{\"#blocks\":\"1\",\"#orphans\":\"0\",\"confirmed_id\":\"0\",\"root_id\":\"0\",\"working_depth\":\"0\",\"working_id\":\"0\"}"}
+{"NetStatus":"{\"#address\":\"ip: 127.0.0.1 port: 9011\",\"#recv_msg\":\"0\",\"#send_msg\":\"0\"}"}
+{"MinerStatus":"{\"#thread\":\"0\",\"difficulty\":\"0\",\"is_running\":\"false\"}"}
+{"TxPoolStatus":"{\"#all_tx\":\"0\"}"}
+{"AddressBalance":["MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==",0]}
+"PublishTxDone"
+"Quitting"
+
