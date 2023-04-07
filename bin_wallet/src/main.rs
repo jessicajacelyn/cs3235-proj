@@ -112,7 +112,7 @@ mod test {
     /// This test reads a wallet from a file and uses it to sign and verify a message.
     #[test]
     fn test_bin_wallet_signing_and_verifying() {
-        let bin_wallet: Wallet = serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.new.json")).unwrap();
+        let bin_wallet: Wallet = serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.B.json")).unwrap();
         println!("Private key Pem:\n{}\n", bin_wallet.priv_key_pem);
         println!("Public key Pem:\n{}\n", bin_wallet.pub_key_pem);
         let msg = "hello world";
