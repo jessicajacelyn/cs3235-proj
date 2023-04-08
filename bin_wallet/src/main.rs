@@ -11,9 +11,10 @@
 
 mod wallet;
 use std::fs;
-use std::io;
-use std::io::Write;
+use std::io::{self,Write, BufRead};
+use seccompiler::*;
 use serde::{Serialize, Deserialize};
+use serde_json::*;
 
 /// Read a string from a file (help with debugging)
 fn read_string_from_file(filepath: &str) -> String {
@@ -80,6 +81,19 @@ fn main() {
     if let Some(policy_path) = maybe_policy_path {
         // Please fill in the blank
         // If the first param is provided, read the seccomp config and apply it
+        //todo!();
+        let maybe_policy_path = std::env::args().nth(1);
+        if let Some(policy_path) = maybe_policy_path {
+            // If the first param is provided, read the seccomp config and apply it
+            let filter_map: BpfMap = seccompiler::compile_from_json(
+                read_string_from_file(&policy_path).as_bytes(),
+                std::env::consts::ARCH.try_into().unwrap(),
+            )
+            .unwrap();
+            let filter = filter_map.get("main_thread").unwrap();
+
+            seccompiler::apply_filter(&filter).unwrap();
+        }
         
     }
 
@@ -90,16 +104,51 @@ fn main() {
     // Eventually, the Quit call will be received and the program will exit.
     use wallet::Wallet;
     // Please fill in the blank
-    todo!();
-    
-    println!("{}\n", serde_json::to_string(&IPCMessageResp::Quitting).unwrap());
+    //todo!();
+    let mut wallet: Option<Wallet> = None;
+    let stdin = io::stdin();
+    for line in stdin.lock().lines() {
+        let input = line.unwrap();
+        let request: IPCMessageReq = serde_json::from_str(&input).expect("Failed to parse input as IPCMessageReq");
+        let response = match request {
+            IPCMessageReq::Quit => {
+                IPCMessageResp::Quitting
+            }
+            IPCMessageReq::Initialize(wallet_json) => {
+                wallet = Some(serde_json::from_str(&wallet_json).expect("Failed to parse wallet_json as Wallet"));
+                IPCMessageResp::Initialized
+            }
+            IPCMessageReq::SignRequest(data) => {
+                let wallet = wallet.as_ref().expect("Wallet not initialized");
+                let signature = wallet.sign(&data);
+                IPCMessageResp::SignResponse(data, signature)
+            }
+            IPCMessageReq::VerifyRequest(data, signature) => {
+                let wallet = wallet.as_ref().expect("Wallet not initialized");
+                let is_valid = wallet.verify(&data, &signature);
+                IPCMessageResp::VerifyResponse(is_valid, data)
+            }
+            IPCMessageReq::GetUserInfo => {
+                let wallet = wallet.as_ref().expect("Wallet not initialized");
+                let user_id = wallet.get_user_id();
+                let username = wallet.get_user_name();
+                IPCMessageResp::UserInfo(username, user_id)
+            }
+        };
+        let output = serde_json::to_string(&response).unwrap();
+        println!("{}\n", output);
+        // if request == IPCMessageReq::Quit {
+        //     println!("{}\n", serde_json::to_string(&IPCMessageResp::Quitting).unwrap());
+        //     break;
+        // }
+    }
+
+    //println!("{}\n", serde_json::to_string(&IPCMessageResp::Quitting).unwrap());
 }
 
 #[cfg(test)]
 mod test {
     use crate::{wallet::Wallet, write_string_to_file, IPCMessageReq, IPCMessageResp, read_string_from_file};
-
-    
     
     /// This test generates a new wallet and writes it to a file.
     #[test]
