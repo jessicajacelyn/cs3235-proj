@@ -39,6 +39,7 @@ impl MerkleTree {
         if txs.is_empty() {
             panic!("create_merkle_tree received empty transaction vector.");
         }
+        // todo!()
 
         // To create a Merkle tree from a list of transactions, you can follow these steps:
         // Create a list of hashes of all transactions.
@@ -59,16 +60,25 @@ impl MerkleTree {
 
             for i in (0..last_level.len() - 1).step_by(2) {
                 let mut hasher = Sha256::new();
-                let mut buf = [0u8; 64];
 
                 let h1 = &last_level[i];
                 let h2 = &last_level[i + 1];
 
-                buf[..32].copy_from_slice(&hex::decode(h1).unwrap());
-                buf[32..].copy_from_slice(&hex::decode(h2).unwrap());
-
-                hasher.update(&buf[..]);
+                let mut owned_string: String = h1.to_owned();
+                owned_string.push_str(&h2);
+                let input = owned_string.as_bytes();
+                hasher.update(input);
                 let result = hasher.finalize();
+
+                // println!("lalal {:x}", result);
+                // buf[..32].copy_from_slice(&hex::decode(h1).unwrap());
+                // buf[32..].copy_from_slice(&hex::decode(h2).unwrap());
+                // // hasher.update(&buf[..]);
+
+                // let input = "d9961bbcbbcedfa994a951662da7285ccc82940a6e65028da233e21b1c543a13aeec55bd3c6bcc5749cd248fd88b65de45fd14b42abdad4b3c874c2e00865a1b";
+                // hasher.update(input.as_bytes());
+                // let result = hasher.finalize();
+                // println!("lalal {:x}", result);
 
                 level.push(hex::encode(result));
             }
@@ -79,6 +89,8 @@ impl MerkleTree {
         let root = hashes.last().unwrap()[0].clone();
         let tree = MerkleTree { hashes };
 
+        // println!("hereee {}", root);
+        // println!("--------------------------------");
         (root, tree)
     }
 }
@@ -222,7 +234,13 @@ impl BlockTree {
     /// Get the block node by the block id if exists. Otherwise, return None.
     pub fn get_block(&self, block_id: BlockId) -> Option<BlockNode> {
         // Please fill in the blank
-        todo!();
+        // todo!();
+        for (_, block) in self.all_blocks.iter() {
+            if block.header.block_id == block_id {
+                return Some(block.clone());
+            }
+        }
+        return None;
     }
 
     /// Get the finalized blocks on the longest path after the given block id, from the oldest to the most recent.
