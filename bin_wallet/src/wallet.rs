@@ -1,4 +1,4 @@
-// This file is part of the project for the module CS3235 by Prateek 
+// This file is part of the project for the module CS3235 by Prateek
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
@@ -9,14 +9,16 @@
 // You can see detailed instructions in the comments below.
 // You can also look at the unit tests in ./main.rs to understand the expected behavior of the wallet.
 
-use rsa::{RsaPublicKey, RsaPrivateKey};
-use rsa::pkcs1::{EncodeRsaPublicKey, EncodeRsaPrivateKey, DecodeRsaPublicKey, DecodeRsaPrivateKey};
+use rsa::pkcs1::{
+    DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
+};
 use rsa::pkcs1v15::{SigningKey, VerifyingKey};
 use rsa::signature::{RandomizedSigner, Signature, Verifier};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256};
 use base64ct::{Base64, Encoding};
+use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
 /// A wallet that stores the key pairs. Most importantly, the private key.
 /// For the format of the key, you can check the unit test at ./main.rs:test_bin_wallet_signing_and_verifying
@@ -28,9 +30,8 @@ pub struct Wallet {
     /// The private key in PEM format
     pub priv_key_pem: String,
     /// The public key in PEM format
-    pub pub_key_pem: String
+    pub pub_key_pem: String,
 }
-
 
 impl Wallet {
     /// Create a new wallet with a given user name and key size.
@@ -40,7 +41,6 @@ impl Wallet {
         // Please fill in the blank
         // Generate new key pairs, and return as a wallet
         todo!();
-        
     }
 
     /// return the user name
@@ -55,7 +55,6 @@ impl Wallet {
         // Pub key format:  "-----BEGIN RSA PUBLIC KEY-----\nMDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JG\npfiZSckCAwEAAQ==\n-----END RSA PUBLIC KEY-----\n"
         // user_id format:  "MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ=="
         todo!();
-        
     }
 
     /// Sign a message using the private key and return the signature as a Base64 encoded string.
@@ -64,7 +63,6 @@ impl Wallet {
         // Please fill in the blank
         // Sign the message with the private key, and return the signature in Base64 format
         todo!();
-        
     }
 
     /// Verify a signature using the public key. The signature is a string in Base64 format.
@@ -81,7 +79,6 @@ impl Wallet {
                 //println!("[Signature verification failed]: {}", e);
                 false
             }
-        }
+        };
     }
 }
-

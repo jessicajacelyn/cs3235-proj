@@ -132,9 +132,11 @@ mod tests {
         println!("current dir: {:?}", std::env::current_dir());
         for i in vec![1, 2, 3, 4, 5, 6, 7, 8] {
             // read block from "./testdata/add_block_basic__{i}.json"
+            println!("read block from ./testdata/add_blocks_basic__{}.json", i);
             let block_json =
                 read_string_from_file(&format!("./testdata/add_blocks_basic__{}.json", i));
             let block_node = serde_json::from_str::<BlockNode>(&block_json).unwrap();
+            println!("block : {}", block_node.header.block_id);
             default_btree.add_block(block_node, 5);
         }
         assert!(
@@ -153,7 +155,7 @@ mod tests {
             default_btree.finalized_block_id
                 == "00000f93bcb625d8181e02c5e952672b3b178ab6cb56c86546b605e8915a1b11"
         );
-        //println!("default_btree: {:?}", default_btree);
+        println!("default_btree: {:?}", default_btree);
     }
 
     /// Test adding blocks to the blocktree (orphan considered)

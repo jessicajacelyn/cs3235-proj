@@ -2,6 +2,7 @@
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
+use base64ct::{Base64, Encoding};
 /// This file contains the definition of the BlockTree
 /// The BlockTree is a data structure that stores all the blocks that have been mined by this node or received from other nodes.
 /// The longest path in the BlockTree is the main chain. It is the chain from the root to the working_block_id.
@@ -10,9 +11,17 @@ use serde::{Deserialize, Serialize};
 use sha2::{digest::block_buffer::Block, Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    convert,
+    convert, hash,
+    sync::Arc,
 };
 
+use pem::parse;
+use rsa::pkcs1::{
+    DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
+};
+use rsa::pkcs1v15::{SigningKey, VerifyingKey};
+use rsa::signature::{RandomizedSigner, Signature as RSASig, Signer, Verifier};
+use rsa::{RsaPrivateKey, RsaPublicKey};
 pub type UserId = String;
 pub type BlockId = String;
 pub type Signature = String;
@@ -44,7 +53,7 @@ impl MerkleTree {
         // To create a Merkle tree from a list of transactions, you can follow these steps:
         // Create a list of hashes of all transactions.
         // If the number of hashes is odd, duplicate the last hash to make it even.
-        // Group the hashes into pairs and hash each pair to get a new list of hashes.
+        // Group hashes into pairs and hash each pair to get a new list of hashes.
         // If the number of hashes is still not one, repeat steps 2 and 3 until you get a single hash, which is the Merkle root.
 
         let mut hashes: Vec<Vec<String>> = vec![txs.iter().map(|tx| tx.gen_hash()).collect()];
@@ -67,6 +76,7 @@ impl MerkleTree {
                 let mut owned_string: String = h1.to_owned();
                 owned_string.push_str(&h2);
                 let input = owned_string.as_bytes();
+
                 hasher.update(input);
                 let result = hasher.finalize();
 
@@ -149,7 +159,48 @@ impl Transaction {
         // Please fill in the blank
         // verify the signature using the sender_id as the public key (you might need to change the format into PEM)
         // You can look at the `verify` function in `bin_wallet` for reference. They should have the same functionality.
-        todo!();
+        // todo!();
+
+        // All lines except the last line must be 64 characters in length ...haizz
+        let formatted_string = format!(
+            "{}{}",
+            &self.sender[..64],
+            "\n".to_string() + &self.sender[64..]
+        );
+
+        // convert the public key into PEM format
+        let pem_encoded_key = format!(
+            "-----BEGIN RSA PUBLIC KEY-----\n{}\n-----END RSA PUBLIC KEY-----\n",
+            formatted_string
+        );
+
+        // println!("pem_encoded: {}", &pem_encoded_key);
+
+        let public_key = rsa::RsaPublicKey::from_pkcs1_pem(&pem_encoded_key).unwrap();
+        let verifying_key = VerifyingKey::<Sha256>::new(public_key);
+        let signature = Base64::decode_vec(&self.sig).unwrap();
+        let verify_signature = RSASig::from_bytes(&signature).unwrap();
+
+        // message is a tuple (sender, receiver, message) serialized to a strin
+        let mut msg: String = "[\"".to_string();
+        msg.push_str(&self.sender);
+        msg.push_str("\",\"");
+        msg.push_str(&self.receiver);
+        msg.push_str("\",\"");
+        msg.push_str(&self.message);
+        msg.push_str("\"]");
+
+        // println!("msg: {}", &msg);
+
+        let verify_result = verifying_key.verify(msg.as_bytes(), &verify_signature);
+
+        return match verify_result {
+            Ok(()) => true,
+            Err(e) => {
+                println!("[Signature verification failed]: {}", e);
+                false
+            }
+        };
     }
 }
 
@@ -226,9 +277,179 @@ impl BlockTree {
     ///
     /// When a block is successfully added to the block tree, update the related fields in the BlockTree struct
     /// (e.g., working_block_id, finalized_block_id, finalized_balance_map, finalized_tx_ids, block_depth, children_map, all_blocks, etc)
-    pub fn add_block(&mut self, block: BlockNode, leading_zero_len: u16) -> () {
-        // Please fill in the blank
-        todo!();
+
+    pub fn add_block(&mut self, block: BlockNode, leading_zero_len: u16) -> Result<(), String> {
+        //     todo!();
+        println!("balance_map before: {:?}", self.finalized_balance_map);
+
+        let mut hasher = Sha256::new();
+        hasher.update(block.header.nonce.clone());
+        // Check that the block satisfies the required conditions
+        let block_nonce = block.header.nonce.clone();
+        let block_id = block.header.block_id.clone();
+        let parent_id = block.header.parent.clone();
+
+        // Check that the block's hash satisfies the difficulty requirement.
+        if !block_id.starts_with(&"0".repeat(leading_zero_len as usize)) {
+            println!("Block does not satisfy difficulty requirement.");
+            return Err("Block does not satisfy difficulty requirement.".to_string());
+        }
+
+        let puzzle = Puzzle {
+            parent: parent_id.clone(),
+            merkle_root: block.header.merkle_root.clone(),
+            reward_receiver: block.header.reward_receiver.clone(),
+        };
+
+        let serialized = serde_json::to_string(&puzzle).unwrap();
+
+        let mut owned_string: String = block_nonce.clone();
+        // owned_string.push_str(&block_nonce);
+        owned_string.push_str(&serialized);
+        hasher.update(owned_string);
+        let res = hasher.finalize();
+        println!("block mine: {} {}", block_nonce, serialized);
+
+        // Verify that the block_id of the block is equal to the computed hash in the puzzle solution.
+        // if block_nonce != block_id {
+        //     println!(
+        //         "Block ID does not match computed hash in puzzle solution.{} {}",
+        //         block_id,
+        //         hex::encode(res)
+        //     );
+        //     return Err("Block ID does not match computed hash in puzzle solution.".to_string());
+        // }
+
+        // Ensure that the block does not exist in the block tree or the orphan map.
+        if self.all_blocks.contains_key(&block_id) || self.orphans.contains_key(&block_id) {
+            return Err("Block already exists in the block tree or orphan map.".to_string());
+        }
+
+        // Verify that the transactions in the block are valid using the `verify_sig` function in the `Transaction` struct.
+        let verified = block
+            .transactions_block
+            .transactions
+            .iter()
+            .all(|tx| tx.verify_sig());
+        if !verified {
+            return Err("Block contains invalid transactions.".to_string());
+        }
+
+        // Verify that the parent of the block exists in the block tree, otherwise, add it to the orphans map.
+        let _parent_node = match self.all_blocks.get(&parent_id) {
+            Some(parent_node) => parent_node,
+            None => {
+                self.orphans.insert(block_id.clone(), block);
+                return Ok(()); // Return early since block is in the orphan map
+            }
+        };
+
+        // Ensure that the transactions in the block are not duplicated with any transactions in its ancestor blocks.
+        // let ancestor_node = parent_node;
+        let mut ancestor_tx_ids = HashSet::new();
+        for (_, ancestor_block) in self.all_blocks.iter() {
+            for tx in &ancestor_block.transactions_block.transactions {
+                ancestor_tx_ids.insert(tx.gen_hash());
+            }
+        }
+
+        for tx in &block.transactions_block.transactions {
+            if ancestor_tx_ids.contains(&tx.gen_hash()) {
+                return Err(
+                    "Transactions in block are duplicates with ancestor blocks.".to_string()
+                );
+            }
+        }
+
+        // Verify that each sender in the transactions in the block has enough balance to pay for the transaction.
+        let mut balance_map = self.finalized_balance_map.clone();
+
+        for tx in &block.transactions_block.transactions {
+            let sender = &tx.sender;
+            let receiver = &tx.receiver;
+            let message = &tx.message;
+            let amount_str = message
+                .split("$")
+                .nth(1)
+                .unwrap()
+                .split(" ")
+                .next()
+                .unwrap();
+            let amount = amount_str.parse::<i64>().unwrap();
+
+            if !balance_map.contains_key(sender) || balance_map[sender] < amount {
+                return Err(format!(
+                    "Sender {} does not have enough balance to pay for transaction.",
+                    sender
+                ));
+            }
+            balance_map
+                .entry(sender.clone())
+                .and_modify(|e| *e -= amount);
+
+            // Check if receiver exists in balance map, if not, add it
+            if !balance_map.contains_key(receiver) {
+                balance_map.insert(receiver.clone(), amount);
+            } else {
+                balance_map
+                    .entry(receiver.clone())
+                    .and_modify(|e| *e += amount);
+            }
+
+            println!("balance_map: {:?}", balance_map);
+        }
+
+        self.all_blocks.insert(block_id.clone(), block.clone());
+        self.working_block_id = block_id.clone();
+
+        // Add $10 to reward receiver; if reward receiver does not exist in balance map, add it
+        if balance_map.contains_key(&block.header.reward_receiver) {
+            balance_map
+                .entry(block.header.reward_receiver.clone())
+                .and_modify(|e| *e += 10);
+        } else {
+            balance_map.insert(block.header.reward_receiver.clone(), 10);
+        }
+
+        // Add block to parent's children list
+        let children = self
+            .children_map
+            .entry(parent_id.clone())
+            .or_insert_with(Vec::new);
+        children.push(block_id.clone());
+        let block_node = self.all_blocks.get_mut(&block_id).unwrap();
+        block_node.header.parent = parent_id.clone();
+        self.finalized_balance_map = balance_map;
+
+        let parent_depth = self.block_depth.get(&parent_id).unwrap();
+        let block_depth = parent_depth + 1;
+        self.block_depth.insert(block_id.clone(), block_depth);
+
+        // Add any orphans that have this block as a parent
+        let mut orphans_to_add = Vec::new();
+        for (orphan_id, orphan_block) in self.orphans.iter() {
+            if orphan_block.header.parent == block_id {
+                orphans_to_add.push(orphan_id.clone());
+            }
+        }
+        for orphan_id in orphans_to_add {
+            let orphan_block = self.orphans.remove(&orphan_id).unwrap();
+            self.add_block(orphan_block, leading_zero_len)?;
+        }
+
+        println!("block depth: {:?}", self.block_depth);
+
+        println!("working block: {}", self.working_block_id);
+        println!("balance map 299791558 : {}", self.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
+        println!("balance map 300 : {}", self.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
+        println!("balance map 20 : {}", self.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
+        // println!(
+        //     "block depth 7 {}",
+        //     self.block_depth
+        //         [&"00000e3737f396b050fd38ed30e8813818229ffa43ce5f77b3781ace835a8db6".to_owned()]
+        // );
+
+        Ok(())
     }
 
     /// Get the block node by the block id if exists. Otherwise, return None.
@@ -248,13 +469,33 @@ impl BlockTree {
     /// If it is not the case, the function will panic (i.e. we do not consider inconsistent block tree caused by attacks in this project)
     pub fn get_finalized_blocks_since(&self, since_block_id: BlockId) -> Vec<BlockNode> {
         // Please fill in the blank
-        todo!();
+        // todo!();
+        let mut finalized_blocks = Vec::new();
+        let mut block_id = since_block_id;
+        while block_id != self.finalized_block_id {
+            let block = self.get_block(block_id).unwrap();
+            finalized_blocks.push(block.clone());
+            block_id = block.header.parent;
+        }
+        return finalized_blocks;
     }
 
     /// Get the pending transactions on the longest chain that are confirmed but not finalized.
     pub fn get_pending_finalization_txs(&self) -> Vec<Transaction> {
         // Please fill in the blank
-        todo!();
+        // todo!();
+        let mut pending_txs = Vec::new();
+        let mut block_id = self.working_block_id.clone();
+        while block_id != self.finalized_block_id {
+            let block = self.get_block(block_id).unwrap();
+            for tx in block.transactions_block.transactions {
+                if !self.finalized_tx_ids.contains(&tx.gen_hash()) {
+                    pending_txs.push(tx);
+                }
+            }
+            block_id = block.header.parent;
+        }
+        return pending_txs;
     }
 
     /// Get status information of the BlockTree for debug printing.
