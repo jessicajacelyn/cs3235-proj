@@ -181,7 +181,7 @@ impl Transaction {
         let signature = Base64::decode_vec(&self.sig).unwrap();
         let verify_signature = RSASig::from_bytes(&signature).unwrap();
 
-        // message is a tuple (sender, receiver, message) serialized to a strin
+        // message is a tuple (sender, receiver, message) serialized to a string
         let mut msg: String = "[\"".to_string();
         msg.push_str(&self.sender);
         msg.push_str("\",\"");
@@ -281,58 +281,18 @@ impl BlockTree {
     pub fn add_block(&mut self, block: BlockNode, leading_zero_len: u16) -> Result<(), String> {
         //     todo!();
         println!("balance_map before: {:?}", self.finalized_balance_map);
-
-        let mut hasher = Sha256::new();
-        hasher.update(block.header.nonce.clone());
-        // Check that the block satisfies the required conditions
         let block_nonce = block.header.nonce.clone();
         let block_id = block.header.block_id.clone();
         let parent_id = block.header.parent.clone();
-
-        // Check that the block's hash satisfies the difficulty requirement.
-        if !block_id.starts_with(&"0".repeat(leading_zero_len as usize)) {
-            println!("Block does not satisfy difficulty requirement.");
-            return Err("Block does not satisfy difficulty requirement.".to_string());
-        }
-
-        let puzzle = Puzzle {
-            parent: parent_id.clone(),
-            merkle_root: block.header.merkle_root.clone(),
-            reward_receiver: block.header.reward_receiver.clone(),
-        };
-
-        let serialized = serde_json::to_string(&puzzle).unwrap();
-
-        let mut owned_string: String = block_nonce.clone();
-        // owned_string.push_str(&block_nonce);
-        owned_string.push_str(&serialized);
-        hasher.update(owned_string);
-        let res = hasher.finalize();
-        println!("block mine: {} {}", block_nonce, serialized);
-
-        // Verify that the block_id of the block is equal to the computed hash in the puzzle solution.
-        // if block_nonce != block_id {
-        //     println!(
-        //         "Block ID does not match computed hash in puzzle solution.{} {}",
-        //         block_id,
-        //         hex::encode(res)
-        //     );
-        //     return Err("Block ID does not match computed hash in puzzle solution.".to_string());
-        // }
 
         // Ensure that the block does not exist in the block tree or the orphan map.
         if self.all_blocks.contains_key(&block_id) || self.orphans.contains_key(&block_id) {
             return Err("Block already exists in the block tree or orphan map.".to_string());
         }
 
-        // Verify that the transactions in the block are valid using the `verify_sig` function in the `Transaction` struct.
-        let verified = block
-            .transactions_block
-            .transactions
-            .iter()
-            .all(|tx| tx.verify_sig());
-        if !verified {
-            return Err("Block contains invalid transactions.".to_string());
+        // Ensure that block is valid
+        if (&block).validate_block(leading_zero_len) == (false, block.header.block_id.clone()) {
+            return Err("Block is not valid.".to_string());
         }
 
         // Verify that the parent of the block exists in the block tree, otherwise, add it to the orphans map.
@@ -364,6 +324,7 @@ impl BlockTree {
         // Verify that each sender in the transactions in the block has enough balance to pay for the transaction.
         let mut balance_map = self.finalized_balance_map.clone();
 
+        // Get the amount to transfer from the message
         for tx in &block.transactions_block.transactions {
             let sender = &tx.sender;
             let receiver = &tx.receiver;
@@ -396,7 +357,11 @@ impl BlockTree {
                     .and_modify(|e| *e += amount);
             }
 
-            println!("balance_map: {:?}", balance_map);
+            println!(
+                "sender: {:?}, receiver: {:?}, amount: {:?}",
+                sender, receiver, amount
+            );
+            // println!("balance_map: {:?}", balance_map);
         }
 
         self.all_blocks.insert(block_id.clone(), block.clone());
@@ -437,9 +402,11 @@ impl BlockTree {
             self.add_block(orphan_block, leading_zero_len)?;
         }
 
-        println!("block depth: {:?}", self.block_depth);
+        println!("balance map final: {:?}", self.finalized_balance_map);
 
-        println!("working block: {}", self.working_block_id);
+        // println!("block depth: {:?}", self.block_depth);
+
+        // println!("working block: {}", self.working_block_id);
         println!("balance map 299791558 : {}", self.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
         println!("balance map 300 : {}", self.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
         println!("balance map 20 : {}", self.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
@@ -581,6 +548,54 @@ impl BlockNode {
     /// 3. The merkle root in the block header is indeed the merkle root of the transactions in the block.
     pub fn validate_block(&self, leading_zero_len: u16) -> (bool, BlockId) {
         // Please fill in the blank
-        todo!();
+        // todo!();
+
+        println!("Validating block: {:?}", self.header.block_id);
+        let mut hasher = Sha256::new();
+        let block_nonce = self.header.nonce.clone();
+        let block_id = self.header.block_id.clone();
+
+        // Check that the block's hash satisfies the difficulty requirement.
+        if !block_id.starts_with(&"0".repeat(leading_zero_len as usize)) {
+            println!("Block does not satisfy difficulty requirement.");
+            return (false, block_id);
+        }
+
+        // Create a puzzle struct from the block header and serialize it to a json string.
+        let puzzle = Puzzle {
+            parent: self.header.parent.clone(),
+            merkle_root: self.header.merkle_root.clone(),
+            reward_receiver: self.header.reward_receiver.clone(),
+        };
+        let serialized = serde_json::to_string(&puzzle).unwrap().to_owned();
+
+        let mut owned_string: String = block_nonce.clone();
+        owned_string.push_str(&serialized);
+        hasher.update(owned_string.as_bytes());
+        let res = hasher.finalize();
+
+        // println!("block mine: {} {}", block_nonce, owned_string);
+
+        // Verify that the block_id of the block is equal to the computed hash in the puzzle solution.
+        if hex::encode(res) != block_id {
+            println!(
+                "Block ID does not match computed hash in puzzle solution.{} {}",
+                block_id,
+                hex::encode(res)
+            );
+            return (false, hex::encode(res));
+        }
+
+        // Verify that the transactions in the block are valid using the `verify_sig` function in the `Transaction` struct.
+        let verified = self
+            .transactions_block
+            .transactions
+            .iter()
+            .all(|tx| tx.verify_sig());
+        if !verified {
+            println!("Block contains invalid transactions.");
+            return (false, block_id);
+        }
+        return (true, block_id);
     }
 }
