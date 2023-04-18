@@ -7,12 +7,17 @@
 // You can see detailed instructions in the comments below.
 // You can also look at the unit tests in ./lib.rs to understand the expected behavior of the miner.
 
+use std::sync::mpsc::TryRecvError;
+use std::thread::{Thread, JoinHandle};
+use std::time::Duration;
 use std::{thread, convert};
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
 use rand_pcg::Pcg32;
 use rand::{Rng, SeedableRng, distributions::{Alphanumeric, DistString}};
 use sha2::{Sha256, Digest};
+use std::vec::Vec;
+use hex;
 
 
 // A miner that solve puzzles.
@@ -30,6 +35,8 @@ pub struct Miner {
 }
 
 type BlockId = String;
+
+
 
 /// The struct to represent a puzzle solution returned by the miner.
 pub struct PuzzleSolution {
@@ -69,7 +76,93 @@ impl Miner {
         // If any of the threads finds a solution, other threads should stop.
         // Additionally, if the cancellation_token is set to true, all threads should stop.
         // The purpose of the cancellation_token is to allow the miner to stop the computation when other nodes have already solved the exact same puzzle.
-        todo!();
+        // calculate the target hash string
+        let target = "0".repeat(leading_zero_len as usize);
+
+        // create a channel to communicate the solution back to the main thread
+        let (sender, receiver) = std::sync::mpsc::channel();
+
+        // spawn multiple threads
+        let mut threads = Vec::new();
+        let mut found_solution = false;
+        for i in 0..thread_count {
+            let thread_seed = thread_0_seed + i as u64;
+            let miner_p = Arc::clone(&miner_p);
+            let sender = sender.clone();
+            let cancellation_token = Arc::clone(&cancellation_token);
+            let target = target.clone();
+            let puzzle = puzzle.clone();
+            let nonce_len = nonce_len as usize;
+
+            threads.push(thread::spawn(move || {
+                let mut rng = rand::rngs::StdRng::seed_from_u64(thread_seed);
+
+                loop {
+                    // check if the puzzle is cancelled
+                    if *cancellation_token.read().unwrap() {
+                        println!("Thread {} cancelled", i);
+                        break;
+                    }
+
+                    // generate a random nonce string
+                    let nonce: String = (0..nonce_len).map(|_| rng.gen_range(b'A'..=b'Z') as char).collect();
+
+                    // compute the hash of (nonce || puzzle)
+                    let mut hasher = Sha256::new();
+                    hasher.update(nonce.as_bytes());
+                    hasher.update(puzzle.as_bytes());
+                    let hash_bytes = hasher.finalize();
+                    let hash = hex::encode(&hash_bytes);
+
+                    // check if the hash meets the target
+                    if hash.starts_with(&target) {
+                        found_solution = true;
+                        // send the solution back to the main thread
+                        sender.send(PuzzleSolution {
+                            puzzle: puzzle,
+                            nonce: nonce,
+                            hash: hash,
+                        }).unwrap();
+                        break;
+                    }
+                }
+            }));
+        }
+
+        // wait for a solution or cancellation
+        let solution = loop {
+            if *cancellation_token.read().unwrap() {
+                println!("Puzzle cancelled, no solution found");
+                break None;
+            }
+
+            match receiver.try_recv() {
+                Ok(solution) => {
+                    // set the is_running flag to false
+                    let mut miner = miner_p.lock().unwrap();
+                    miner.is_running = false;
+
+                    // cancel all threads
+                    *cancellation_token.write().unwrap() = true;
+
+                    // join all threads
+                    for thread in threads {
+                        thread.join().unwrap();
+                    }
+
+                    break Some(solution);
+                }
+                Err(TryRecvError::Empty) => {
+                    // sleep for a short time to avoid busy waiting
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(TryRecvError::Disconnected) => {
+                    panic!("Receiver disconnected before solving the puzzle");
+                }
+            }
+        };
+
+        solution
         
     } 
     
@@ -78,7 +171,12 @@ impl Miner {
         // Please fill in the blank
         // For debugging purpose, you can return any dictionary of strings as the status of the miner. 
         // It should be displayed in the Client UI eventually.
-        todo!();
+        //todo!();
+        let mut status = BTreeMap::new();
+        status.insert("Thread count".to_string(), self.thread_count.to_string());
+        status.insert("Leading zero length".to_string(), self.leading_zero_len.to_string());
+        status.insert("Is running".to_string(), if self.is_running { "Yes".to_string() } else { "No".to_string() });
+        status
         
     }
 }
