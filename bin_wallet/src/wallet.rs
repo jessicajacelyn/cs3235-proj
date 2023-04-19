@@ -8,15 +8,14 @@
 // The actual verification of the signature should be implemented in the lib_chain module.
 // You can see detailed instructions in the comments below.
 // You can also look at the unit tests in ./main.rs to understand the expected behavior of the wallet.
-
 use rsa::pkcs1::{
     DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
 };
 use rsa::pkcs1v15::{SigningKey, VerifyingKey};
-use rsa::signature::{RandomizedSigner, Signature, Verifier};
+use rsa::signature::{RandomizedSigner, Signature, Signer, Verifier};
 use rsa::{RsaPrivateKey, RsaPublicKey};
 
-use base64ct::{Base64, Encoding};
+use base64ct::{Base64, Encoding, LineEnding};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
@@ -40,7 +39,16 @@ impl Wallet {
     pub fn new(user_name: String, bits: usize) -> Wallet {
         // Please fill in the blank
         // Generate new key pairs, and return as a wallet
-        todo!();
+        //todo!();
+        let private_key = RsaPrivateKey::new(&mut rand::thread_rng(), bits).unwrap();
+        let public_key = RsaPublicKey::from(&private_key);
+        let priv_key_pem = private_key.to_pkcs1_pem(LineEnding::default()).unwrap();
+        let pub_key_pem = public_key.to_pkcs1_pem(LineEnding::default()).unwrap();
+        Wallet {
+            user_name,
+            priv_key_pem: priv_key_pem.to_string(),
+            pub_key_pem,
+        }
     }
 
     /// return the user name
@@ -54,7 +62,15 @@ impl Wallet {
         // Get user id from the public key by changing the format (strip off the first and last lines and join the middle lines)
         // Pub key format:  "-----BEGIN RSA PUBLIC KEY-----\nMDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JG\npfiZSckCAwEAAQ==\n-----END RSA PUBLIC KEY-----\n"
         // user_id format:  "MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ=="
-        todo!();
+        //todo!();
+
+        let mut lines = self.pub_key_pem.lines();
+        lines.next();
+        let mut result = String::new();
+        for line in lines {
+            result += line.trim();
+        }
+        result
     }
 
     /// Sign a message using the private key and return the signature as a Base64 encoded string.
@@ -62,7 +78,11 @@ impl Wallet {
     pub fn sign(&self, message: &str) -> String {
         // Please fill in the blank
         // Sign the message with the private key, and return the signature in Base64 format
-        todo!();
+        //todo!();
+        let private_key = rsa::RsaPrivateKey::from_pkcs1_pem(&self.priv_key_pem).unwrap();
+        let signer = SigningKey::<Sha256>::new(private_key);
+        let signature = signer.sign(message.as_bytes());
+        return Base64::encode_string(&signature);
     }
 
     /// Verify a signature using the public key. The signature is a string in Base64 format.
