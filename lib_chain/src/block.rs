@@ -89,8 +89,6 @@ impl MerkleTree {
         let root = hashes.last().unwrap()[0].clone();
         let tree = MerkleTree { hashes };
 
-        // println!("hereee {}", root);
-        // println!("--------------------------------");
         (root, tree)
     }
 }
@@ -164,8 +162,6 @@ impl Transaction {
             formatted_string
         );
 
-        // println!("pem_encoded: {}", &pem_encoded_key);
-
         let public_key = rsa::RsaPublicKey::from_pkcs1_pem(&pem_encoded_key).unwrap();
         let verifying_key = VerifyingKey::<Sha256>::new(public_key);
         let signature = Base64::decode_vec(&self.sig).unwrap();
@@ -179,8 +175,6 @@ impl Transaction {
         msg.push_str("\",\"");
         msg.push_str(&self.message);
         msg.push_str("\"]");
-
-        // println!("msg: {}", &msg);
 
         let verify_result = verifying_key.verify(msg.as_bytes(), &verify_signature);
 
@@ -270,7 +264,6 @@ impl BlockTree {
 
     pub fn add_block(&mut self, block: BlockNode, leading_zero_len: u16) -> Result<(), String> {
         //     todo!();
-        // println!("balance_map before: {:?}", self.finalized_balance_map);
 
         let block_id = block.header.block_id.clone();
         let parent_id = block.header.parent.clone();
@@ -294,30 +287,60 @@ impl BlockTree {
             }
         };
 
-        // Ensure that the transactions in the block are not duplicated with any transactions in its ancestor blocks.
-        let mut ancestor_tx_ids = HashSet::new();
-        let mut ancestor_node = parent_id.clone();
-        while ancestor_node != "0" {
-            let ancestor_block = self.all_blocks.get(&ancestor_node).unwrap();
-            for tx in &ancestor_block.transactions_block.transactions {
-                ancestor_tx_ids.insert(tx.gen_hash());
+        self.all_blocks.insert(block_id.clone(), block.clone());
+        self.block_depth.insert(
+            block_id.clone(),
+            self.block_depth.get(&parent_id).unwrap() + 1,
+        );
+
+        // Add block to parent's children list
+        let children = self
+            .children_map
+            .entry(parent_id.clone())
+            .or_insert_with(Vec::new);
+        children.push(block_id.clone());
+        let block_node = self.all_blocks.get_mut(&block_id).unwrap();
+        block_node.header.parent = parent_id.clone();
+
+        // Update block depth
+        let parent_depth = self.block_depth.get(&parent_id).unwrap();
+        let block_depth = parent_depth + 1;
+        self.block_depth.insert(block_id.clone(), block_depth);
+
+        // Add any orphans that have this block as a parent
+        let mut orphans_to_add = Vec::new();
+        for (orphan_id, orphan_block) in self.orphans.iter() {
+            if orphan_block.header.parent == block_id {
+                orphans_to_add.push(orphan_id.clone());
             }
-            ancestor_node = ancestor_block.header.parent.clone();
+        }
+        for orphan_id in orphans_to_add {
+            let orphan_block = self.orphans.remove(&orphan_id).unwrap();
+            self.add_block(orphan_block, leading_zero_len)?;
         }
 
-        for tx in &block.transactions_block.transactions {
-            if ancestor_tx_ids.contains(&tx.gen_hash()) {
-                return Err(
-                    "Transactions in block are duplicates with ancestor blocks.".to_string()
-                );
+        // Update longest path (working_block_id)
+        if self.block_depth.get(&block_id).unwrap()
+            > self.block_depth.get(&self.working_block_id).unwrap()
+        {
+            self.working_block_id = block_id.clone();
+        } else if self.block_depth.get(&self.working_block_id).unwrap()
+            == self.block_depth.get(&block_id).unwrap()
+        {
+            // the one whose last block has the larger hash number as the longest path
+            if block_id > self.working_block_id {
+                self.working_block_id = block_id.clone();
             }
         }
+
+        let txs = self.get_pending_finalization_txs();
+        let txss = self.get_pending_finalization_txs();
 
         // Verify that each sender in the transactions in the block has enough balance to pay for the transaction.
         let mut balance_map = self.finalized_balance_map.clone();
 
         // Transfer money from sender to receiver
-        for tx in &block.transactions_block.transactions {
+        for tx in txs {
             let sender = &tx.sender;
             let receiver = &tx.receiver;
             let message = &tx.message;
@@ -348,78 +371,34 @@ impl BlockTree {
                     .entry(receiver.clone())
                     .and_modify(|e| *e += amount);
             }
-
-            // println!(
-            //     "sender: {:?}, receiver: {:?}, amount: {:?}",
-            //     sender, receiver, amount
-            // );
-            // println!("balance_map: {:?}", balance_map);
         }
 
-        self.all_blocks.insert(block_id.clone(), block.clone());
-        self.working_block_id = block_id.clone();
-        self.finalized_block_id = block.header.parent.clone();
+        // self.working_block_id = block_id.clone();
+        // self.all_blocks.insert(block_id.clone(), block.clone());
 
         // Update finalized tx ids
-        let mut temp = HashSet::new();
-        for tx in &self.all_blocks[&self.finalized_block_id]
-            .transactions_block
-            .transactions
-        {
+        let mut temp = self.finalized_tx_ids.clone();
+        for tx in txss {
             temp.insert(tx.gen_hash());
         }
         self.finalized_tx_ids = temp;
 
-        // Add $10 to reward receiver; if reward receiver does not exist in balance map, add it
-        if balance_map.contains_key(&block.header.reward_receiver) {
-            balance_map
-                .entry(block.header.reward_receiver.clone())
-                .and_modify(|e| *e += 10);
-        } else {
-            balance_map.insert(block.header.reward_receiver.clone(), 10);
+        let finalized_blocks = self.get_finalized_blocks_since(self.finalized_block_id.clone());
+        if !finalized_blocks.is_empty() {
+            self.finalized_block_id = finalized_blocks[0].header.block_id.clone();
+            // Add $10 to reward receiver; if reward receiver does not exist in balance map, add it
+            let block = &finalized_blocks[0];
+            if balance_map.contains_key(&block.header.reward_receiver) {
+                balance_map
+                    .entry(block.header.reward_receiver.clone())
+                    .and_modify(|e| *e += 10);
+            } else {
+                balance_map.insert(block.header.reward_receiver.clone(), 10);
+            }
         }
-
-        // Add block to parent's children list
-        let children = self
-            .children_map
-            .entry(parent_id.clone())
-            .or_insert_with(Vec::new);
-        children.push(block_id.clone());
-        let block_node = self.all_blocks.get_mut(&block_id).unwrap();
-        block_node.header.parent = parent_id.clone();
 
         // Update balance map
         self.finalized_balance_map = balance_map;
-
-        // Update block depth
-        let parent_depth = self.block_depth.get(&parent_id).unwrap();
-        let block_depth = parent_depth + 1;
-        self.block_depth.insert(block_id.clone(), block_depth);
-        println!("block depth: {:?} {}", block_id, block_depth);
-
-        // Add any orphans that have this block as a parent
-        let mut orphans_to_add = Vec::new();
-        for (orphan_id, orphan_block) in self.orphans.iter() {
-            if orphan_block.header.parent == block_id {
-                orphans_to_add.push(orphan_id.clone());
-            }
-        }
-        for orphan_id in orphans_to_add {
-            let orphan_block = self.orphans.remove(&orphan_id).unwrap();
-            self.add_block(orphan_block, leading_zero_len)?;
-        }
-
-        // println!("balance map final: {:?}", self.finalized_balance_map);
-
-        // println!("balance map 299791558 : {}", self.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
-        // println!("balance map 300 : {}", self.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
-        // println!("balance map 20 : {}", self.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
-        // println!(
-        //     "block depth 7 {}",
-        //     self.block_depth
-        //         [&"00000e3737f396b050fd38ed30e8813818229ffa43ce5f77b3781ace835a8db6".to_owned()]
-        // );
-        println!("finalized block id: {}", self.finalized_block_id);
 
         Ok(())
     }
@@ -442,13 +421,19 @@ impl BlockTree {
     pub fn get_finalized_blocks_since(&self, since_block_id: BlockId) -> Vec<BlockNode> {
         // Please fill in the blank
         // todo!();
+
         let mut finalized_blocks = Vec::new();
-        let mut block_id = since_block_id;
-        while block_id != self.finalized_block_id {
+        let mut block_id = self.working_block_id.clone();
+        let depth = self.block_depth[&block_id];
+        while block_id != since_block_id {
+            let id = block_id.clone();
             let block = self.get_block(block_id).unwrap();
-            finalized_blocks.push(block.clone());
+            if (depth - self.block_depth[&id]) >= 6 {
+                finalized_blocks.push(block.clone());
+            }
             block_id = block.header.parent;
         }
+        finalized_blocks.reverse(); // oldest to newest
         return finalized_blocks;
     }
 
@@ -457,15 +442,13 @@ impl BlockTree {
         // Please fill in the blank
         // todo!();
         let mut pending_txs = Vec::new();
-        let mut block_id = self.working_block_id.clone();
-        while block_id != self.finalized_block_id {
-            let block = self.get_block(block_id).unwrap();
-            for tx in block.transactions_block.transactions {
+        let blocks = self.get_finalized_blocks_since(self.finalized_block_id.clone());
+        for block in blocks {
+            for tx in block.transactions_block.transactions.iter() {
                 if !self.finalized_tx_ids.contains(&tx.gen_hash()) {
-                    pending_txs.push(tx);
+                    pending_txs.push(tx.clone());
                 }
             }
-            block_id = block.header.parent;
         }
         return pending_txs;
     }
@@ -555,7 +538,6 @@ impl BlockNode {
         // Please fill in the blank
         // todo!();
 
-        println!("Validating block: {:?}", self.header.block_id);
         let mut hasher = Sha256::new();
         let block_nonce = self.header.nonce.clone();
         let block_id = self.header.block_id.clone();
@@ -578,8 +560,6 @@ impl BlockNode {
         owned_string.push_str(&serialized);
         hasher.update(owned_string.as_bytes());
         let res = hasher.finalize();
-
-        // println!("block mine: {} {}", block_nonce, owned_string);
 
         // Verify that the block_id of the block is equal to the computed hash in the puzzle solution.
         if hex::encode(res) != block_id {

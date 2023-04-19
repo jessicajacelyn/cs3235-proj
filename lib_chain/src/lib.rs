@@ -89,9 +89,6 @@ mod tests {
         let tx_vec = vec![tx1, tx2, tx3, tx4];
         let (merkle_root, merkle) = MerkleTree::create_merkle_tree(tx_vec);
 
-        for level in merkle.hashes {
-            println!("haha {}\n", level.join(", "))
-        }
         assert!(merkle_root == "3c1ad8fb380a0808e5c0c0a864040d74338de2aa3a9f5aa2657371b4f5a68ae6");
         // Expected output:
         // 0cb819e19d34ee88b6c20c78cea0aec818f1d6875479c9c9a1505c27495d7a91, 9977c7f05151d3b9bae366fd55facd78ef3054508c1950be7821322e4a7f11fe, b2f3877e2827e9761b902b0eb092a787fe662e58f65eb8978f14e59490a368ff, 2764749767b38c8f947005179a3b5aba56de75261c9b42bdf45799baca0738b4
@@ -132,21 +129,33 @@ mod tests {
         println!("current dir: {:?}", std::env::current_dir());
         for i in vec![1, 2, 3, 4, 5, 6, 7, 8] {
             // read block from "./testdata/add_block_basic__{i}.json"
-            println!("read block from ./testdata/add_blocks_basic__{}.json", i);
+            // println!("read block from ./testdata/add_blocks_basic__{}.json", i);
             let block_json =
                 read_string_from_file(&format!("./testdata/add_blocks_basic__{}.json", i));
             let block_node = serde_json::from_str::<BlockNode>(&block_json).unwrap();
-            println!("block : {}", block_node.header.block_id);
             default_btree.add_block(block_node, 5);
         }
+        // println!("299791558: {}", default_btree.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
+        // println!("300: {}", default_btree.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
+        // println!("20: {}", default_btree.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
+        // println!(
+        //     "7: {}",
+        //     default_btree.block_depth
+        //         [&"00000e3737f396b050fd38ed30e8813818229ffa43ce5f77b3781ace835a8db6".to_owned()]
+        // );
+        // println!(
+        //     "00000f93bcb625d8181e02c5e952672b3b178ab6cb56c86546b605e8915a1b11: {}",
+        //     default_btree.finalized_block_id
+        // );
+        // println!(
+        //     "0000052b06a4d5c725f3713aed93d4b4e1da93a7b4f7cb870ef1f7e6b6b0fcb8: {}",
+        //     default_btree.working_block_id
+        // );
+
         assert!(
             default_btree.working_block_id
                 == "0000052b06a4d5c725f3713aed93d4b4e1da93a7b4f7cb870ef1f7e6b6b0fcb8".to_string()
         );
-        println!("299791558: {}", default_btree.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
-        println!("300: {}", default_btree.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
-        println!("20: {}", default_btree.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
-
         assert!(default_btree.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()] == 299791558);
         assert!(default_btree.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()] == 300);
         assert!(default_btree.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()] == 20);
@@ -159,7 +168,6 @@ mod tests {
             default_btree.finalized_block_id
                 == "00000f93bcb625d8181e02c5e952672b3b178ab6cb56c86546b605e8915a1b11"
         );
-        println!("default_btree: {:?}", default_btree);
     }
 
     /// Test adding blocks to the blocktree (orphan considered)
@@ -167,7 +175,7 @@ mod tests {
     fn blocktree_add_blocks_orphan() {
         let mut default_btree = BlockTree::new();
         // print current pwd
-        println!("current dir: {:?}", std::env::current_dir());
+        // println!("current dir: {:?}", std::env::current_dir());
         for i in vec![3, 6, 1, 4, 2, 8, 5, 7] {
             // read block from "./testdata/add_block_basic__{i}.json"
             let block_json =
@@ -179,6 +187,12 @@ mod tests {
             default_btree.working_block_id
                 == "0000052b06a4d5c725f3713aed93d4b4e1da93a7b4f7cb870ef1f7e6b6b0fcb8".to_string()
         );
+
+        // println!("299791558: {}", default_btree.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()]);
+        // println!("300: {}", default_btree.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()]);
+        // println!("20: {}", default_btree.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()]);
+        // println!("finalized_block_id: {}", default_btree.finalized_block_id);
+
         assert!(default_btree.finalized_balance_map[&"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==".to_owned()] == 299791558);
         assert!(default_btree.finalized_balance_map[&"MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==".to_owned()] == 300);
         assert!(default_btree.finalized_balance_map[&"MDgCMQDeoEeA8OtGME/SRwp+ASKVOnjlEUHYvQfo0FLp3+fwVi/SztDdJskjzCRasGk06UUCAwEAAQ==".to_owned()] == 20);
