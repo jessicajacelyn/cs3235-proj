@@ -79,21 +79,15 @@ fn main() {
     // Otherwise, it will proceed to the normal execution
     let maybe_policy_path = std::env::args().nth(1);
     if let Some(policy_path) = maybe_policy_path {
-        // Please fill in the blank
-        // If the first param is provided, read the seccomp config and apply it
-        //todo!();
-        let maybe_policy_path = std::env::args().nth(1);
-        if let Some(policy_path) = maybe_policy_path {
-            // If the first param is provided, read the seccomp config and apply it
-            let filter_map: BpfMap = seccompiler::compile_from_json(
-                read_string_from_file(&policy_path).as_bytes(),
-                std::env::consts::ARCH.try_into().unwrap(),
-            )
-            .unwrap();
-            let filter = filter_map.get("main_thread").unwrap();
+       // If the first param is provided, read the seccomp config and apply it
+       let filter_map: BpfMap = seccompiler::compile_from_json(
+        read_string_from_file(&policy_path).as_bytes(),
+        std::env::consts::ARCH.try_into().unwrap(),
+        )
+        .unwrap();
+        let filter = filter_map.get("main_thread").unwrap();
 
-            seccompiler::apply_filter(&filter).unwrap();
-        }
+        seccompiler::apply_filter(&filter).unwrap();
         
     }
 
