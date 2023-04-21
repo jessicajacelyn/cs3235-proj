@@ -146,6 +146,12 @@ impl TxPool {
         // Please fill in the blank
         // For debugging purpose, you can return any dictionary of strings as the status of the tx_pool.
         // It should be displayed in the Client UI eventually.
-        todo!();
+        // todo!();
+        let mut status = BTreeMap::new();
+        status.insert(
+            "pool_tx_map".to_string(),
+            self.pool_tx_map.len().to_string(),
+        );
+        status
     }
 }
