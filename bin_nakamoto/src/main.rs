@@ -106,5 +106,4 @@ fn main() {
     // Eventually, the program will quit when receiving a Quit IPC call.
     // Please fill in the blank
     // Loop over stdin and handle IPC messages
-    todo();
 }

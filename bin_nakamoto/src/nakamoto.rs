@@ -61,7 +61,7 @@ fn create_puzzle(
     let blocktree = chain_p.lock().unwrap();
     let txpool = tx_pool_p.lock().unwrap();
 
-    let finalized_txs = blocktree.finalized_tx_ids;
+    let finalized_txs = &blocktree.finalized_tx_ids;
     let mut excluding_txs = Vec::<Transaction>::new();
     // excluding txs are txs that are not in finalized_txs
     for tx in txpool.pool_tx_ids.iter() {
@@ -158,18 +158,19 @@ impl Nakamoto {
             leading_zero_len: config.difficulty_leading_zero_len,
             is_running: false,
         };
+        let arc_miner = Arc::new(Mutex::new(miner));
         let network = P2PNetwork::create(config.addr, config.neighbors);
 
         // Start necessary threads that read from and write to FIFO channels provided by the network.
 
         // Return the Nakamoto instance that holds pointers to the chain, the miner, the network and the tx pool.
-        // Nakamoto {
-        //     chain_p: todo!(),
-        //     miner_p: miner,
-        //     network_p: todo,
-        //     tx_pool_p: tx_pool,
-        //     trans_tx: todo!(),
-        // }
+        return Nakamoto {
+            chain_p: chain,
+            miner_p: arc_miner,
+            network_p: network.0,
+            tx_pool_p: tx_pool,
+            trans_tx: todo!(),
+        };
     }
 
     /// Get the status of the network as a dictionary of strings. For debugging purpose.
@@ -196,6 +197,9 @@ impl Nakamoto {
     pub fn publish_tx(&mut self, transaction: Transaction) -> () {
         // Please fill in the blank
         // Add the transaction to the transaction pool and send it to the broadcast channel
+
+        let mut tx_pool = self.tx_pool_p.lock().unwrap();
+        tx_pool.add_tx(transaction.clone());
     }
 
     /// Get the serialized chain as a json string.
