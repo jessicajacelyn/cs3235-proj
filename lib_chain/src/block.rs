@@ -12,7 +12,7 @@ use sha2::{digest::block_buffer::Block, Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     convert, hash,
-    sync::Arc,
+    sync::Arc, error::Error,
 };
 
 use pem::parse;
@@ -498,6 +498,7 @@ pub struct BlockNode {
 }
 
 impl BlockNode {
+
     /// Create the genesis block that contains the initial transactions
     /// (give $299792458 to the address of Alice `MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==`)
     pub fn genesis_block() -> BlockNode {

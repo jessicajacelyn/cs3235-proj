@@ -12,14 +12,14 @@
 use lib_chain::block::{BlockNode, Transaction, BlockId, TxId};
 use crate::netchannel::*;
 use std::collections::{HashMap, BTreeMap, HashSet};
-use std::io::BufReader;
-use std::io::BufRead;
+use std::io::{BufReader, Read, Result, BufWriter, Write, BufRead};
 use std::{convert, io};
-use std::net::{TcpListener, TcpStream, SocketAddr, ToSocketAddrs};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::net::{TcpListener, TcpStream, SocketAddr, ToSocketAddrs, SocketAddrV4, Ipv4Addr};
+use std::sync::mpsc::{Receiver, Sender, channel, TryRecvError};
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
+use futures::select;
 
 /// The struct to represent statistics of a peer-to-peer network.
 pub struct P2PNetwork {
@@ -34,62 +34,6 @@ pub struct P2PNetwork {
 }
 
 impl P2PNetwork {
-
-    fn handle_incoming_connection(
-        stream: TcpStream,
-        block_node_tx: Sender<BlockNode>,
-        transaction_tx: Sender<Transaction>,
-        block_request_tx: Sender<BlockId>,
-    ) {
-        let peer_addr = stream.peer_addr().expect("Failed to get peer address");
-        println!("Incoming connection from {}", peer_addr);
-    
-        // clone the senders to be moved into the thread
-        let block_node_tx_clone = block_node_tx.clone();
-        let transaction_tx_clone = transaction_tx.clone();
-        let block_request_tx_clone = block_request_tx.clone();
-    
-        std::thread::spawn(move || {
-            // create a buffered reader to read incoming messages from the stream
-            let reader = BufReader::new(&stream);
-    
-            // read messages from the stream and handle them appropriately
-            for line in reader.lines() {
-                match line {
-                    Ok(msg) => {
-                        // parse the message and determine its type
-                        if let Ok(block_node) = serde_json::from_str::<BlockNode>(&msg) {
-                            // if the message is a BlockNode, send it to the block_node channel
-                            if block_node_tx_clone.send(block_node).is_err() {
-                                println!("Failed to send block node to channel");
-                                break;
-                            }
-                        } else if let Ok(transaction) = serde_json::from_str::<Transaction>(&msg) {
-                            // if the message is a Transaction, send it to the transaction channel
-                            if transaction_tx_clone.send(transaction).is_err() {
-                                println!("Failed to send transaction to channel");
-                                break;
-                            }
-                        } else if let Ok(block_id) = serde_json::from_str::<BlockId>(&msg) {
-                            // if the message is a BlockId, send it to the block_request channel
-                            if block_request_tx_clone.send(block_id).is_err() {
-                                println!("Failed to send block request to channel");
-                                break;
-                            }
-                        } else {
-                            println!("Received unknown message: {}", msg);
-                        }
-                    }
-                    Err(e) => {
-                        println!("Failed to read message from {}: {}", peer_addr, e);
-                        break;
-                    }
-                }
-            }
-    
-            println!("Closing connection to {}", peer_addr);
-        });
-    }
 
     /// Creates a new P2PNetwork instance and associated FIFO communication channels.
     /// There are 5 FIFO channels. 
@@ -127,35 +71,123 @@ impl P2PNetwork {
         let p2p_network = P2PNetwork {
             send_msg_count: 0,
             recv_msg_count: 0,
-            address,
-            neighbors,
+            address: address.clone(),
+            neighbors: neighbors.clone(),
         };
         
         // 2. create mpsc channels for sending and receiving messages
-        let (block_node_tx, block_node_rx) = channel();
-        let (transaction_tx, transaction_rx) = channel();
-        let (block_broadcast_tx, block_broadcast_rx) = channel();
-        let (transaction_broadcast_tx, transaction_broadcast_rx) = channel();
-        let (block_request_tx, block_request_rx) = channel();
+        // let (block_node_tx, block_node_rx) = channel();
+        // let (transaction_tx, transaction_rx) = channel();
+        // let (block_broadcast_tx, block_broadcast_rx) = channel();
+        // let (transaction_broadcast_tx, transaction_broadcast_rx) = channel();
+        // let (block_request_tx, block_request_rx) = channel();
         
+        // let p2p_network = Arc::new(Mutex::new(p2p_network));
+        // let p2p_network_clone = p2p_network.clone();      
+
+        let (block_sender, block_receiver) = channel();
+        let (tx_sender, tx_receiver) = channel();
+        let (block_id_sender, block_id_receiver) = channel();
+
+        // 3. create a thread for accepting incoming TCP connections from neighbors
+        
+        // let socket_string = format!("{}:{}", &address.ip, &address.port);
+        // let tcp_listener = TcpListener::bind(socket_string).expect("failed to bind TCP listener");
+
         let p2p_network = Arc::new(Mutex::new(p2p_network));
-        let p2p_network_clone = p2p_network.clone();
-       
-       //Step 3 to 7
+        let p2p_clone = p2p_network.clone();
+        let block_sender_clone: Sender<BlockNode> = block_sender.clone();
+        let tx_sender_clone: Sender<Transaction> = tx_sender.clone();
+        let block_id_sender_clone : Sender<BlockId> = block_id_sender.clone();
+        thread::spawn(move || {
+            let socket_string = format!("{}:{}", &address.ip, &address.port);
+            let listener = TcpListener::bind(socket_string).expect("failed to bind TCP listener");
+            for stream in listener.incoming() {
+                match stream {
+                    Ok(stream) => {
+                        let p2p = p2p_clone.clone();
+                        let block_sender = block_sender_clone.clone();
+                        let tx_sender = tx_sender_clone.clone();
+                        let block_id_sender = block_id_sender_clone.clone();
+                        thread::spawn(move || {
+                            let mut reader = BufReader::new(&stream);
+                            let mut writer = BufWriter::new(&stream);
 
-       // 3. create a thread to accept incoming TCP connections from neighbors
-       
+                            loop {
+                                let mut msg = String::new();
+                                match reader.read_line(&mut msg) {
+                                    Ok(_) => {
+                                        let parts: Vec<&str> = msg.trim().split(":").collect();
+                                        match parts[0] {
+                                            "block" => {
+                                                let block = serde_json::from_str(parts[1]).unwrap();
+                                                block_sender.send(block).unwrap();
+                                            }
+                                            "tx" => {
+                                                let tx = serde_json::from_str(parts[1]).unwrap();
+                                                tx_sender.send(tx).unwrap();
+                                            }
+                                            "block_id" => {
+                                                let block_id = serde_json::from_str(parts[1]).unwrap();
+                                                block_id_sender.send(block_id).unwrap();
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Err(_) => {
+                                        break;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                    }
+                }
+            }
+        });
+
         
-        // 8. return the created P2PNetwork instance and the mpsc channels
-        (
-            p2p_network,
-            block_node_rx,
-            transaction_rx,
-            block_broadcast_tx,
-            transaction_broadcast_tx,
-            block_request_tx
-        )
+        // 4. create TCP connections to all neighbors
+        let mut senders: Vec<Sender<String>> = Vec::new();
 
+        for neighbor in &neighbors {
+            let socket_string = format!("{}:{}", &neighbor.ip, &neighbor.port);
+            match TcpStream::connect(socket_string) {
+                Ok(stream) => {
+                    let (sender, receiver) = channel();
+                    senders.push(sender);
+                    // Spawn a thread to send messages over the channel
+                    std::thread::spawn(move || {
+                        let mut writer = BufWriter::new(&stream);
+                        loop {
+                            match receiver.recv() {
+                                Ok(msg) => {
+                                    if let Err(e) = writer.write(msg.as_bytes()) {
+                                        println!("Error: {}", e);
+                                        break;
+                                    }
+                                    if let Err(e) = writer.flush() {
+                                        println!("Error: {}", e);
+                                        break;
+                                    }
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    });
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
+            }
+        }
+        
+        // 5. create threads for each TCP connection to send messages
+
+        
+        todo!()
         
     }
 
