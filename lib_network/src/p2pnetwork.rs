@@ -12,11 +12,14 @@
 use lib_chain::block::{BlockNode, Transaction, BlockId, TxId};
 use crate::netchannel::*;
 use std::collections::{HashMap, BTreeMap, HashSet};
-use std::convert;
-use std::net::TcpListener;
-use std::sync::mpsc::{Receiver, Sender};
+use std::io::BufReader;
+use std::io::BufRead;
+use std::{convert, io};
+use std::net::{TcpListener, TcpStream, SocketAddr, ToSocketAddrs};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 /// The struct to represent statistics of a peer-to-peer network.
 pub struct P2PNetwork {
@@ -30,8 +33,64 @@ pub struct P2PNetwork {
     pub neighbors: Vec<NetAddress>,
 }
 
-
 impl P2PNetwork {
+
+    fn handle_incoming_connection(
+        stream: TcpStream,
+        block_node_tx: Sender<BlockNode>,
+        transaction_tx: Sender<Transaction>,
+        block_request_tx: Sender<BlockId>,
+    ) {
+        let peer_addr = stream.peer_addr().expect("Failed to get peer address");
+        println!("Incoming connection from {}", peer_addr);
+    
+        // clone the senders to be moved into the thread
+        let block_node_tx_clone = block_node_tx.clone();
+        let transaction_tx_clone = transaction_tx.clone();
+        let block_request_tx_clone = block_request_tx.clone();
+    
+        std::thread::spawn(move || {
+            // create a buffered reader to read incoming messages from the stream
+            let reader = BufReader::new(&stream);
+    
+            // read messages from the stream and handle them appropriately
+            for line in reader.lines() {
+                match line {
+                    Ok(msg) => {
+                        // parse the message and determine its type
+                        if let Ok(block_node) = serde_json::from_str::<BlockNode>(&msg) {
+                            // if the message is a BlockNode, send it to the block_node channel
+                            if block_node_tx_clone.send(block_node).is_err() {
+                                println!("Failed to send block node to channel");
+                                break;
+                            }
+                        } else if let Ok(transaction) = serde_json::from_str::<Transaction>(&msg) {
+                            // if the message is a Transaction, send it to the transaction channel
+                            if transaction_tx_clone.send(transaction).is_err() {
+                                println!("Failed to send transaction to channel");
+                                break;
+                            }
+                        } else if let Ok(block_id) = serde_json::from_str::<BlockId>(&msg) {
+                            // if the message is a BlockId, send it to the block_request channel
+                            if block_request_tx_clone.send(block_id).is_err() {
+                                println!("Failed to send block request to channel");
+                                break;
+                            }
+                        } else {
+                            println!("Received unknown message: {}", msg);
+                        }
+                    }
+                    Err(e) => {
+                        println!("Failed to read message from {}: {}", peer_addr, e);
+                        break;
+                    }
+                }
+            }
+    
+            println!("Closing connection to {}", peer_addr);
+        });
+    }
+
     /// Creates a new P2PNetwork instance and associated FIFO communication channels.
     /// There are 5 FIFO channels. 
     /// Those channels are used for communication within the process.
@@ -62,7 +121,41 @@ impl P2PNetwork {
         // 6. create threads to listen to messages from neighbors
         // 7. create threads to distribute received messages (send to channels or broadcast to neighbors)
         // 8. return the created P2PNetwork instance and the mpsc channels
-        todo!();
+        //todo!();
+
+        // 1. create a P2PNetwork instance
+        let p2p_network = P2PNetwork {
+            send_msg_count: 0,
+            recv_msg_count: 0,
+            address,
+            neighbors,
+        };
+        
+        // 2. create mpsc channels for sending and receiving messages
+        let (block_node_tx, block_node_rx) = channel();
+        let (transaction_tx, transaction_rx) = channel();
+        let (block_broadcast_tx, block_broadcast_rx) = channel();
+        let (transaction_broadcast_tx, transaction_broadcast_rx) = channel();
+        let (block_request_tx, block_request_rx) = channel();
+        
+        let p2p_network = Arc::new(Mutex::new(p2p_network));
+        let p2p_network_clone = p2p_network.clone();
+       
+       //Step 3 to 7
+
+       // 3. create a thread to accept incoming TCP connections from neighbors
+       
+        
+        // 8. return the created P2PNetwork instance and the mpsc channels
+        (
+            p2p_network,
+            block_node_rx,
+            transaction_rx,
+            block_broadcast_tx,
+            transaction_broadcast_tx,
+            block_request_tx
+        )
+
         
     }
 
