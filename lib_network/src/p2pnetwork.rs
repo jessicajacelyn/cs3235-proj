@@ -19,7 +19,9 @@ use std::sync::mpsc::{Receiver, Sender, channel, TryRecvError};
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
-use futures::select;
+use futures::{select, stream};
+use rand::thread_rng;
+use rand::Rng;
 
 /// The struct to represent statistics of a peer-to-peer network.
 pub struct P2PNetwork {
@@ -183,11 +185,81 @@ impl P2PNetwork {
                 }
             }
         }
-        
-        // 5. create threads for each TCP connection to send messages
 
+        // step 5 - 7
+        for neighbor in &neighbors {
+            let p2p_clone = p2p_network.clone();
+            let neighbor_clone = neighbor.clone();
+            let sender = senders.pop().unwrap();
+            thread::spawn(move || {
+                let socket_string = format!("{}:{}", &neighbor_clone.ip, &neighbor_clone.port);
+                match TcpStream::connect(socket_string) {
+                    Ok(stream) => {
+                        let mut reader = BufReader::new(&stream);
+                        let mut writer = BufWriter::new(&stream);
+
+                        loop {
+                            let mut msg = String::new();
+                            match reader.read_line(&mut msg) {
+                                Ok(_) => {
+                                    let parts: Vec<&str> = msg.trim().split(":").collect();
+                                    match parts[0] {
+                                        "block" => {
+                                            let block:BlockNode = serde_json::from_str(parts[1]).unwrap();
+                                            p2p_clone.lock().unwrap().recv_msg_count += 1;
+                                            sender.send(msg).unwrap();
+                                        }
+                                        "tx" => {
+                                            let tx:Transaction = serde_json::from_str(parts[1]).unwrap();
+                                            p2p_clone.lock().unwrap().recv_msg_count += 1;
+                                            sender.send(msg).unwrap();
+                                        }
+                                        "block_id" => {
+                                            let block_id: BlockId = serde_json::from_str(parts[1]).unwrap();
+                                            let neighbors_len = p2p_clone.lock().unwrap().neighbors.len();
+                                            let random_neighbor_index = thread_rng().gen_range(0..neighbors_len);
+                                            let random_neighbor = &p2p_clone.lock().unwrap().neighbors[random_neighbor_index];
+                                            let msg = format!("block_id:{}", parts[1]);
+                                            let socket_string = format!("{}:{}", &random_neighbor.ip, &random_neighbor.port);
+                                            match TcpStream::connect(socket_string) {
+                                                Ok(mut stream) => {
+                                                    let mut writer = BufWriter::new(&stream);
+                                                    writer.write(msg.as_bytes()).unwrap();
+                                                    writer.flush().unwrap();
+                                                }
+                                                Err(e) => {
+                                                    println!("Error: {}", e);
+                                                }
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(_) => {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                    }
+                }
+            });
+        } 
         
-        todo!()
+
+         // 8. return the created P2PNetwork instance and the mpsc channels
+        (
+            p2p_network,
+            block_receiver, 
+            tx_receiver, 
+            block_sender, 
+            tx_sender,
+            block_id_sender
+        )
+
+        //todo!();
         
     }
 
