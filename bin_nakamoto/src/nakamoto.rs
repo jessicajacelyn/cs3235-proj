@@ -101,8 +101,8 @@ fn create_puzzle(
         },
 
         transactions_block: Transactions {
-            transactions: filtered_txs,
-            merkle_tree: MerkleTree::create_merkle_tree(filtered_txs).1,
+            transactions: filtered_txs.clone(),
+            merkle_tree: MerkleTree::create_merkle_tree(filtered_txs.clone()).1,
         },
     };
 
@@ -131,7 +131,7 @@ impl Nakamoto {
         let msg = HashMap::from([("Notify".to_string(), msg.clone())]);
         println!("{}", serde_json::to_string(&msg).unwrap());
     }
-
+    
     /// Create a Nakamoto instance given the serialized chain, tx pool and config as three json strings.
     pub fn create_nakamoto(chain_str: String, tx_pool_str: String, config_str: String) -> Nakamoto {
         // Please fill in the blank
@@ -162,6 +162,8 @@ impl Nakamoto {
         let network = P2PNetwork::create(config.addr, config.neighbors);
 
         // Start necessary threads that read from and write to FIFO channels provided by the network.
+        // Start necessary thread(s) to control the miner.
+        //todo
 
         // Return the Nakamoto instance that holds pointers to the chain, the miner, the network and the tx pool.
         return Nakamoto {
@@ -169,7 +171,7 @@ impl Nakamoto {
             miner_p: arc_miner,
             network_p: network.0,
             tx_pool_p: tx_pool,
-            trans_tx: todo!(),
+            trans_tx: network.4,
         };
     }
 
