@@ -1,0 +1,481 @@
+warning: unused import: `digest::block_buffer::Block`
+  --> lib_chain/src/block.rs:11:12
+   |
+11 | use sha2::{digest::block_buffer::Block, Digest, Sha256};
+   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `convert`, `hash`, `sync::Arc`
+  --> lib_chain/src/block.rs:14:5
+   |
+14 |     convert, hash,
+   |     ^^^^^^^  ^^^^
+15 |     sync::Arc,
+   |     ^^^^^^^^^
+
+warning: unused import: `pem::parse`
+  --> lib_chain/src/block.rs:18:5
+   |
+18 | use pem::parse;
+   |     ^^^^^^^^^^
+
+warning: unused imports: `EncodeRsaPrivateKey`, `EncodeRsaPublicKey`
+  --> lib_chain/src/block.rs:20:46
+   |
+20 |     DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
+   |                                              ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `SigningKey`
+  --> lib_chain/src/block.rs:22:21
+   |
+22 | use rsa::pkcs1v15::{SigningKey, VerifyingKey};
+   |                     ^^^^^^^^^^
+
+warning: unused imports: `RandomizedSigner`, `Signer`
+  --> lib_chain/src/block.rs:23:22
+   |
+23 | use rsa::signature::{RandomizedSigner, Signature as RSASig, Signer, Verifier};
+   |                      ^^^^^^^^^^^^^^^^                       ^^^^^^
+
+warning: unused imports: `RsaPrivateKey`, `RsaPublicKey`
+  --> lib_chain/src/block.rs:24:11
+   |
+24 | use rsa::{RsaPrivateKey, RsaPublicKey};
+   |           ^^^^^^^^^^^^^  ^^^^^^^^^^^^
+
+warning: unused import: `DecodeRsaPrivateKey`
+  --> lib_chain/src/block.rs:20:5
+   |
+20 |     DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `JoinHandle`, `Thread`
+  --> lib_miner/src/miner.rs:11:19
+   |
+11 | use std::thread::{Thread, JoinHandle};
+   |                   ^^^^^^  ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `convert`
+  --> lib_miner/src/miner.rs:13:19
+   |
+13 | use std::{thread, convert};
+   |                   ^^^^^^^
+
+warning: unused import: `rand_pcg::Pcg32`
+  --> lib_miner/src/miner.rs:16:5
+   |
+16 | use rand_pcg::Pcg32;
+   |     ^^^^^^^^^^^^^^^
+
+warning: unused imports: `Alphanumeric`, `DistString`
+  --> lib_miner/src/miner.rs:17:46
+   |
+17 | use rand::{Rng, SeedableRng, distributions::{Alphanumeric, DistString}};
+   |                                              ^^^^^^^^^^^^  ^^^^^^^^^^
+
+warning: unused variable: `miner_p`
+  --> lib_miner/src/miner.rs:90:17
+   |
+90 |             let miner_p = Arc::clone(&miner_p);
+   |                 ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_miner_p`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: value assigned to `found_solution` is never read
+   --> lib_miner/src/miner.rs:119:25
+    |
+119 |                         found_solution = true;
+    |                         ^^^^^^^^^^^^^^
+    |
+    = help: maybe it is overwritten before being read?
+    = note: `#[warn(unused_assignments)]` on by default
+
+warning: unused variable: `found_solution`
+   --> lib_miner/src/miner.rs:119:25
+    |
+119 |                         found_solution = true;
+    |                         ^^^^^^^^^^^^^^
+    |
+    = help: did you mean to capture by reference instead?
+
+warning: unused import: `RandomizedSigner`
+  --> bin_wallet/./src/wallet.rs:15:22
+   |
+15 | use rsa::signature::{RandomizedSigner, Signature, Signer, Verifier};
+   |                      ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `serde_json::*`
+  --> bin_wallet/./src/main.rs:17:5
+   |
+17 | use serde_json::*;
+   |     ^^^^^^^^^^^^^
+
+warning: unused variable: `e`
+  --> bin_wallet/./src/wallet.rs:98:17
+   |
+98 |             Err(e) => {
+   |                 ^ help: if this is intentional, prefix it with an underscore: `_e`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: function `write_string_to_file` is never used
+  --> bin_wallet/./src/main.rs:27:4
+   |
+27 | fn write_string_to_file(filepath: &str, content: String) {
+   |    ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: function `append_string_to_file` is never used
+  --> bin_wallet/./src/main.rs:32:4
+   |
+32 | fn append_string_to_file(filepath: &str, content: String) {
+   |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+  --> bin_wallet/./src/wallet.rs:39:12
+   |
+39 |     pub fn new(user_name: String, bits: usize) -> Wallet {
+   |            ^^^
+
+warning: `lib_chain` (lib) generated 8 warnings
+warning: `lib_miner` (lib) generated 7 warnings
+warning: `bin_wallet` (bin "bin_wallet") generated 6 warnings
+warning: unused import: `Signature`
+ --> lib_tx_pool/src/pool.rs:8:44
+  |
+8 | use lib_chain::block::{BlockId, BlockNode, Signature, Transaction, TxId};
+  |                                            ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `convert`, `hash::Hash`
+  --> lib_tx_pool/src/pool.rs:12:5
+   |
+12 |     convert,
+   |     ^^^^^^^
+13 |     hash::Hash,
+   |     ^^^^^^^^^^
+
+warning: unused import: `io::BufRead`
+  --> lib_network/src/netchannel.rs:12:11
+   |
+12 | use std::{io::BufRead};
+   |           ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Read`, `Write`
+  --> lib_network/src/netchannel.rs:17:15
+   |
+17 | use std::io::{Read, Write};
+   |               ^^^^  ^^^^^
+
+warning: unused import: `TxId`
+  --> lib_network/src/p2pnetwork.rs:12:57
+   |
+12 | use lib_chain::block::{BlockNode, Transaction, BlockId, TxId};
+   |                                                         ^^^^
+
+warning: unused imports: `HashMap`, `HashSet`
+  --> lib_network/src/p2pnetwork.rs:14:24
+   |
+14 | use std::collections::{HashMap, BTreeMap, HashSet};
+   |                        ^^^^^^^            ^^^^^^^
+
+warning: unused import: `std::convert`
+  --> lib_network/src/p2pnetwork.rs:15:5
+   |
+15 | use std::convert;
+   |     ^^^^^^^^^^^^
+
+warning: unused import: `std::net::TcpListener`
+  --> lib_network/src/p2pnetwork.rs:16:5
+   |
+16 | use std::net::TcpListener;
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::thread`
+  --> lib_network/src/p2pnetwork.rs:18:5
+   |
+18 | use std::thread;
+   |     ^^^^^^^^^^^
+
+warning: unused import: `mpsc`
+  --> lib_network/src/p2pnetwork.rs:19:17
+   |
+19 | use std::sync::{mpsc, Arc, Mutex};
+   |                 ^^^^
+
+warning: unused variable: `addr`
+  --> lib_network/src/netchannel.rs:60:22
+   |
+60 |     pub fn from_addr(addr: &NetAddress) -> Result<Self,String> {
+   |                      ^^^^ help: if this is intentional, prefix it with an underscore: `_addr`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `stream`
+  --> lib_network/src/netchannel.rs:68:24
+   |
+68 |     pub fn from_stream(stream: TcpStream) -> Self {
+   |                        ^^^^^^ help: if this is intentional, prefix it with an underscore: `_stream`
+
+warning: unused variable: `msg`
+  --> lib_network/src/netchannel.rs:93:33
+   |
+93 |     pub fn write_msg(&mut self, msg: NetMessage) -> () {
+   |                                 ^^^ help: if this is intentional, prefix it with an underscore: `_msg`
+
+warning: unused variable: `address`
+  --> lib_network/src/p2pnetwork.rs:47:19
+   |
+47 |     pub fn create(address: NetAddress, neighbors: Vec<NetAddress>) -> (
+   |                   ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_address`
+
+warning: unused variable: `neighbors`
+  --> lib_network/src/p2pnetwork.rs:47:40
+   |
+47 |     pub fn create(address: NetAddress, neighbors: Vec<NetAddress>) -> (
+   |                                        ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_neighbors`
+
+warning: fields `stream` and `reader` are never read
+  --> lib_network/src/netchannel.rs:52:5
+   |
+50 | pub struct NetChannelTCP {
+   |            ------------- fields in this struct
+51 |     /// The TCP stream
+52 |     stream: TcpStream,
+   |     ^^^^^^
+53 |     /// The reader to read from the TCP stream
+54 |     reader: BufReader<TcpStream>
+   |     ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `lib_tx_pool` (lib) generated 2 warnings
+warning: `lib_network` (lib) generated 14 warnings
+   Compiling bin_nakamoto v0.1.0 (/Users/jessicajacelyn/cs3235-proj/bin_nakamoto)
+   Compiling bin_client v0.1.0 (/Users/jessicajacelyn/cs3235-proj/bin_client)
+warning: unused imports: `thread`, `time::Duration`
+  --> bin_nakamoto/./src/nakamoto.rs:10:11
+   |
+10 | use std::{thread, time::Duration};
+   |           ^^^^^^  ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `RwLock`
+  --> bin_nakamoto/./src/nakamoto.rs:11:29
+   |
+11 | use std::sync::{Arc, Mutex, RwLock};
+   |                             ^^^^^^
+
+warning: unused imports: `BlockNodeHeader`, `MerkleTree`, `Transactions`
+  --> bin_nakamoto/./src/nakamoto.rs:13:43
+   |
+13 | use lib_chain::block::{BlockTree, Puzzle, Transactions, MerkleTree, BlockNode, BlockNodeHeader, Transaction};
+   |                                           ^^^^^^^^^^^^  ^^^^^^^^^^             ^^^^^^^^^^^^^^^
+
+warning: unused import: `PuzzleSolution`
+  --> bin_nakamoto/./src/nakamoto.rs:14:31
+   |
+14 | use lib_miner::miner::{Miner, PuzzleSolution};
+   |                               ^^^^^^^^^^^^^^
+
+warning: unused import: `Transaction`
+  --> bin_nakamoto/./src/main.rs:13:24
+   |
+13 | use lib_chain::block::{Transaction, Signature};
+   |                        ^^^^^^^^^^^
+
+warning: unused import: `nakamoto::Nakamoto`
+  --> bin_nakamoto/./src/main.rs:14:5
+   |
+14 | use nakamoto::Nakamoto;
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `self`
+  --> bin_nakamoto/./src/main.rs:17:15
+   |
+17 | use std::io::{self, Write};
+   |               ^^^^
+
+warning: unused imports: `BpfMap`, `BpfProgram`
+  --> bin_client/./src/main.rs:11:19
+   |
+11 | use seccompiler::{BpfMap, BpfProgram};
+   |                   ^^^^^^  ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `Terminal`, `backend::CrosstermBackend`
+  --> bin_client/./src/main.rs:13:11
+   |
+13 | use tui::{backend::CrosstermBackend, Terminal};
+   |           ^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `Input`, `Key`
+  --> bin_client/./src/main.rs:14:20
+   |
+14 | use tui_textarea::{Input, Key};
+   |                    ^^^^^  ^^^
+
+warning: unused imports: `DisableMouseCapture`, `EnableMouseCapture`, `EnterAlternateScreen`, `LeaveAlternateScreen`, `disable_raw_mode`, `enable_raw_mode`, `execute`, `self`
+  --> bin_client/./src/main.rs:17:13
+   |
+17 |     event::{self, DisableMouseCapture, EnableMouseCapture},
+   |             ^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^
+18 |     execute,
+   |     ^^^^^^^
+19 |     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+   |                ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fs::File`
+  --> bin_client/./src/main.rs:23:5
+   |
+23 | use std::fs::File;
+   |     ^^^^^^^^^^^^^
+
+warning: unused imports: `BufReader`, `self`
+  --> bin_client/./src/main.rs:24:15
+   |
+24 | use std::io::{self, BufRead, BufReader, Read, Write};
+   |               ^^^^           ^^^^^^^^^
+
+warning: unused import: `Instant`
+  --> bin_client/./src/main.rs:33:22
+   |
+33 |     time::{Duration, Instant},
+   |                      ^^^^^^^
+
+warning: unused import: `Widget`
+  --> bin_client/./src/app.rs:16:15
+   |
+16 |     widgets::{Widget, Block, Borders, Paragraph, Wrap},
+   |               ^^^^^^
+
+error[E0063]: missing fields `merkle_root`, `parent` and `reward_receiver` in initializer of `Puzzle`
+  --> bin_nakamoto/./src/nakamoto.rs:56:18
+   |
+56 |     let puzzle = Puzzle {
+   |                  ^^^^^^ missing `merkle_root`, `parent` and `reward_receiver`
+
+error[E0308]: mismatched types
+  --> bin_nakamoto/./src/nakamoto.rs:50:124
+   |
+50 | fn create_puzzle(chain_p: Arc<Mutex<BlockTree>>, tx_pool_p: Arc<Mutex<TxPool>>, tx_count: u16, reward_receiver: UserId) -> (String, BlockNode...
+   |    ------------- implicitly returns `()` as its body has no tail or `return` expression                                    ^^^^^^^^^^^^^^^^^^^ expected tuple, found `()`
+   |
+   = note:  expected tuple `(std::string::String, BlockNode)`
+           found unit type `()`
+
+Some errors have detailed explanations: E0063, E0308.
+For more information about an error, try `rustc --explain E0063`.
+warning: `bin_nakamoto` (bin "bin_nakamoto") generated 7 warnings
+error: could not compile `bin_nakamoto` due to 2 previous errors; 7 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+warning: unused variable: `client_seccomp_path`
+   --> bin_client/./src/main.rs:189:9
+    |
+189 |     let client_seccomp_path = std::env::args()
+    |         ^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_client_seccomp_path`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `create_sign_req`
+   --> bin_client/./src/main.rs:228:9
+    |
+228 |     let create_sign_req = |sender: String, receiver: String, message: String| {
+    |         ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_create_sign_req`
+
+warning: unused variable: `bot_command_path`
+   --> bin_client/./src/main.rs:253:13
+    |
+253 |         let bot_command_path = std::env::args().nth(6).unwrap();
+    |             ^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bot_command_path`
+
+warning: unused variable: `bin_wallet_stdin_p_cloned`
+   --> bin_client/./src/main.rs:404:13
+    |
+404 |     let mut bin_wallet_stdin_p_cloned = bin_wallet_stdin_p;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bin_wallet_stdin_p_cloned`
+
+warning: unused variable: `nakamoto_stdin_p_cloned`
+   --> bin_client/./src/main.rs:405:13
+    |
+405 |     let mut nakamoto_stdin_p_cloned = nakamoto_stdin_p;
+    |             ^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_nakamoto_stdin_p_cloned`
+
+warning: unused variable: `nakamoto_response`
+   --> bin_client/./src/main.rs:366:17
+    |
+366 |             let nakamoto_response: IPCMessageRespNakamoto =
+    |                 ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_nakamoto_response`
+
+warning: variable does not need to be mutable
+   --> bin_client/./src/main.rs:404:9
+    |
+404 |     let mut bin_wallet_stdin_p_cloned = bin_wallet_stdin_p;
+    |         ----^^^^^^^^^^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: variable does not need to be mutable
+   --> bin_client/./src/main.rs:405:9
+    |
+405 |     let mut nakamoto_stdin_p_cloned = nakamoto_stdin_p;
+    |         ----^^^^^^^^^^^^^^^^^^^^^^^
+    |         |
+    |         help: remove this `mut`
+
+error[E0382]: use of moved value: `nakamoto_stdin_p`
+   --> bin_client/./src/main.rs:405:39
+    |
+149 |     let mut nakamoto_stdin_p = bin_nakamoto
+    |         -------------------- move occurs because `nakamoto_stdin_p` has type `ChildStdin`, which does not implement the `Copy` trait
+...
+339 |     thread::spawn(move || {
+    |                   ------- value moved into closure here
+...
+344 |             writeln!(nakamoto_stdin_p, "{}", chain_status_request_str)
+    |                      ---------------- variable moved due to use in closure
+...
+405 |     let mut nakamoto_stdin_p_cloned = nakamoto_stdin_p;
+    |                                       ^^^^^^^^^^^^^^^^ value used here after move
+
+error[E0382]: borrow of moved value: `nakamoto_stdin_p`
+   --> bin_client/./src/main.rs:499:5
+    |
+149 |     let mut nakamoto_stdin_p = bin_nakamoto
+    |         -------------------- move occurs because `nakamoto_stdin_p` has type `ChildStdin`, which does not implement the `Copy` trait
+...
+405 |     let mut nakamoto_stdin_p_cloned = nakamoto_stdin_p;
+    |                                       ---------------- value moved here
+...
+499 |     nakamoto_stdin_p.write_all("\"Quit\"\n".as_bytes()).unwrap();
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ value borrowed here after move
+
+error[E0382]: borrow of moved value: `bin_wallet_stdin_p`
+   --> bin_client/./src/main.rs:500:5
+    |
+159 |       let mut bin_wallet_stdin_p = bin_wallet
+    |           ---------------------- move occurs because `bin_wallet_stdin_p` has type `ChildStdin`, which does not implement the `Copy` trait
+...
+404 |       let mut bin_wallet_stdin_p_cloned = bin_wallet_stdin_p;
+    |                                           ------------------ value moved here
+...
+500 | /     bin_wallet_stdin_p
+501 | |         .write_all("\"Quit\"\n".as_bytes())
+    | |___________________________________________^ value borrowed here after move
+
+For more information about this error, try `rustc --explain E0382`.
+warning: `bin_client` (bin "bin_client") generated 16 warnings
+error: could not compile `bin_client` due to 3 previous errors; 16 warnings emitted
