@@ -1,4 +1,4 @@
-// This file is part of the project for the module CS3235 by Prateek 
+// This file is part of the project for the module CS3235 by Prateek
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
@@ -7,21 +7,18 @@
 /// It reads commands from stdin and writes responses to stdout to facilitate IPC communication with bin_client eventually.
 /// However, you can also run it directly from the command line to test it.
 /// You can see detailed instructions in the comments below.
-
-
 mod nakamoto;
-use lib_chain::block::{Transaction, Signature};
+use lib_chain::block::{Signature, Transaction};
 use nakamoto::Nakamoto;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::io::{self, Write};
 use std::fs;
-use serde::{Serialize, Deserialize};
+use std::io::{self, Write};
 
 // Read a string from a file (to help you debug)
 fn read_string_from_file(filepath: &str) -> String {
-    let contents = fs::read_to_string(filepath)
-        .expect(&("Cannot read ".to_owned() + filepath));
+    let contents = fs::read_to_string(filepath).expect(&("Cannot read ".to_owned() + filepath));
     contents
 }
 
@@ -89,7 +86,7 @@ enum IPCMessageResp {
     /// The program is quitting (responding to Quit)
     Quitting,
     /// This is not an actual response, but an arbitrary notification message for debugging
-    Notify(String), 
+    Notify(String),
 }
 
 fn main() {
@@ -100,7 +97,6 @@ fn main() {
     if let Some(policy_path) = maybe_policy_path {
         // Please fill in the blank
         // If the first param is provided, read the seccomp config and apply it
-        
     }
 
     // The main logic of the bin_nakamoto starts here
@@ -110,8 +106,4 @@ fn main() {
     // Eventually, the program will quit when receiving a Quit IPC call.
     // Please fill in the blank
     // Loop over stdin and handle IPC messages
-    
-
 }
-
-
