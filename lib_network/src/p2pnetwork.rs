@@ -67,7 +67,6 @@ impl P2PNetwork {
         // 6. create threads to listen to messages from neighbors
         // 7. create threads to distribute received messages (send to channels or broadcast to neighbors)
         // 8. return the created P2PNetwork instance and the mpsc channels
-        //todo!();
 
         // 1. create a P2PNetwork instance
         let p2p_network = P2PNetwork {
@@ -78,14 +77,6 @@ impl P2PNetwork {
         };
         
         // 2. create mpsc channels for sending and receiving messages
-        // let (block_node_tx, block_node_rx) = channel();
-        // let (transaction_tx, transaction_rx) = channel();
-        // let (block_broadcast_tx, block_broadcast_rx) = channel();
-        // let (transaction_broadcast_tx, transaction_broadcast_rx) = channel();
-        // let (block_request_tx, block_request_rx) = channel();
-        
-        // let p2p_network = Arc::new(Mutex::new(p2p_network));
-        // let p2p_network_clone = p2p_network.clone();      
 
         let (block_sender, block_receiver) = channel();
         let (tx_sender, tx_receiver) = channel();
@@ -93,9 +84,6 @@ impl P2PNetwork {
 
         // 3. create a thread for accepting incoming TCP connections from neighbors
         
-        // let socket_string = format!("{}:{}", &address.ip, &address.port);
-        // let tcp_listener = TcpListener::bind(socket_string).expect("failed to bind TCP listener");
-
         let p2p_network = Arc::new(Mutex::new(p2p_network));
         let p2p_clone = p2p_network.clone();
         let block_sender_clone: Sender<BlockNode> = block_sender.clone();
@@ -258,8 +246,6 @@ impl P2PNetwork {
             tx_sender,
             block_id_sender
         )
-
-        //todo!();
         
     }
 
