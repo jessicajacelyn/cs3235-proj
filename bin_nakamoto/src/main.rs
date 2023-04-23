@@ -123,9 +123,6 @@ fn main() {
         let response = match req {
             IPCMessageReq::Initialize(blocktree_json, tx_pool_json, config_json) => {
                 // Initialize the Nakamoto instance using the given (blocktree_json, tx_pool_json, config_json)
-                // Please fill in the blank
-                // Initialize the Nakamoto instance using the given (blocktree_json, tx_pool_json, config_json)
-                
                 nakamoto = Some(Nakamoto::create_nakamoto(blocktree_json, tx_pool_json, config_json));
                 IPCMessageResp::Initialized;
         
@@ -140,14 +137,13 @@ fn main() {
                 // Publish a transaction to the network (data_string, signature)
                 let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
                 // create transaction instance
-                //nakamoto.publish_tx(transaction);
                 IPCMessageResp::PublishTxDone;
             }
             IPCMessageReq::RequestBlock(block_id) => {
                 // Get the block data of the given block_id
                 let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
                 //create block instance
-                //IPCMessageResp::BlockData(block_data);
+                IPCMessageResp::BlockData(block_id);
             }
             IPCMessageReq::RequestNetStatus => {
                 // Get the network status (for debugging)
@@ -172,7 +168,7 @@ fn main() {
             IPCMessageReq::RequestStateSerialization => {
                 // Get the state serialization (including BlockTree and TxPool)
                 let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
-                //IPCMessageResp::StateSerialization(nakamoto.get_blocktree_serialization(), nakamoto.get_txpool_serialization());
+                IPCMessageResp::StateSerialization(nakamoto.get_serialized_chain(), nakamoto.get_serialized_txpool());
             }
             IPCMessageReq::Quit => {
                 // Quit the program
