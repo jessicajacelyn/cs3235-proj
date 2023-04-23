@@ -70,7 +70,11 @@ impl Wallet {
         for line in lines {
             result += line.trim();
         }
-        result
+        let suffix = "-----END RSA PUBLIC KEY-----";
+
+        result = result.strip_suffix(suffix).unwrap().to_string();
+
+        return result;
     }
 
     /// Sign a message using the private key and return the signature as a Base64 encoded string.

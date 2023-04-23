@@ -122,7 +122,6 @@ fn main() {
                 IPCMessageResp::VerifyResponse(is_valid, data)
             }
             IPCMessageReq::GetUserInfo => {
-                println!("iefjerjoerjgoerjgoerj");
                 let wallet = wallet.as_ref().expect("Wallet not initialized");
                 let user_id = wallet.get_user_id();
                 let username = wallet.get_user_name();

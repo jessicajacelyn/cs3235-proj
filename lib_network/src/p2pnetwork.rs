@@ -1,27 +1,25 @@
-// This file is part of the project for the module CS3235 by Prateek 
+// This file is part of the project for the module CS3235 by Prateek
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
+use crate::netchannel::*;
+use futures::{select, stream};
 /// P2PNetwork is a struct that implements a peer-to-peer network.
 /// It is used to send and receive messages to/from neighbors.
-/// It also automatically broadcasts messages. 
+/// It also automatically broadcasts messages.
 // You can see detailed instructions in the comments below.
 // You can also look at the unit tests in ./lib.rs to understand the expected behavior of the P2PNetwork.
-
-
-use lib_chain::block::{BlockNode, Transaction, BlockId, TxId};
-use crate::netchannel::*;
-use std::collections::{HashMap, BTreeMap, HashSet};
-use std::io::{BufReader, Read, Result, BufWriter, Write, BufRead};
-use std::{convert, io};
-use std::net::{TcpListener, TcpStream, SocketAddr, ToSocketAddrs, SocketAddrV4, Ipv4Addr};
-use std::sync::mpsc::{Receiver, Sender, channel, TryRecvError};
-use std::thread;
-use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
-use futures::{select, stream};
+use lib_chain::block::{BlockId, BlockNode, Transaction, TxId};
 use rand::thread_rng;
 use rand::Rng;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::{BufRead, BufReader, BufWriter, Read, Result, Write};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream, ToSocketAddrs};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use std::{convert, io};
 
 /// The struct to represent statistics of a peer-to-peer network.
 pub struct P2PNetwork {
@@ -36,12 +34,11 @@ pub struct P2PNetwork {
 }
 
 impl P2PNetwork {
-
     /// Creates a new P2PNetwork instance and associated FIFO communication channels.
-    /// There are 5 FIFO channels. 
+    /// There are 5 FIFO channels.
     /// Those channels are used for communication within the process.
-    /// They abstract away the network and neighbor nodes. 
-    /// More specifically, they are for communicating between `bin_nakamoto` threads 
+    /// They abstract away the network and neighbor nodes.
+    /// More specifically, they are for communicating between `bin_nakamoto` threads
     /// and threads that are responsible for TCP network communication.
     /// The usage of those five channels can be guessed from the type:
     /// 1. Receiver<BlockNode>: read from this FIFO channel to receive blocks from the network.
@@ -49,13 +46,16 @@ impl P2PNetwork {
     /// 3. Sender<BlockNode>: write to this FIFO channel to broadcast a block to the network.
     /// 4. Sender<Transaction>: write to this FIFO channel to broadcast a transaction to the network.
     /// 5. Sender<BlockId>: write to this FIFO channel to request a block from the network.
-    pub fn create(address: NetAddress, neighbors: Vec<NetAddress>) -> (
+    pub fn create(
+        address: NetAddress,
+        neighbors: Vec<NetAddress>,
+    ) -> (
         Arc<Mutex<P2PNetwork>>,
-        Receiver<BlockNode>, 
-        Receiver<Transaction>, 
-        Sender<BlockNode>, 
+        Receiver<BlockNode>,
+        Receiver<Transaction>,
+        Sender<BlockNode>,
         Sender<Transaction>,
-        Sender<BlockId>
+        Sender<BlockId>,
     ) {
         // Please fill in the blank
         // You might need to perform the following steps:
@@ -75,7 +75,7 @@ impl P2PNetwork {
             address: address.clone(),
             neighbors: neighbors.clone(),
         };
-        
+
         // 2. create mpsc channels for sending and receiving messages
 
         let (block_sender, block_receiver) = channel();
@@ -83,12 +83,12 @@ impl P2PNetwork {
         let (block_id_sender, block_id_receiver) = channel();
 
         // 3. create a thread for accepting incoming TCP connections from neighbors
-        
+
         let p2p_network = Arc::new(Mutex::new(p2p_network));
         let p2p_clone = p2p_network.clone();
         let block_sender_clone: Sender<BlockNode> = block_sender.clone();
         let tx_sender_clone: Sender<Transaction> = tx_sender.clone();
-        let block_id_sender_clone : Sender<BlockId> = block_id_sender.clone();
+        let block_id_sender_clone: Sender<BlockId> = block_id_sender.clone();
         thread::spawn(move || {
             let socket_string = format!("{}:{}", &address.ip, &address.port);
             let listener = TcpListener::bind(socket_string).expect("failed to bind TCP listener");
@@ -118,7 +118,8 @@ impl P2PNetwork {
                                                 tx_sender.send(tx).unwrap();
                                             }
                                             "block_id" => {
-                                                let block_id = serde_json::from_str(parts[1]).unwrap();
+                                                let block_id =
+                                                    serde_json::from_str(parts[1]).unwrap();
                                                 block_id_sender.send(block_id).unwrap();
                                             }
                                             _ => {}
@@ -138,7 +139,6 @@ impl P2PNetwork {
             }
         });
 
-        
         // 4. create TCP connections to all neighbors
         let mut senders: Vec<Sender<String>> = Vec::new();
 
@@ -193,22 +193,32 @@ impl P2PNetwork {
                                     let parts: Vec<&str> = msg.trim().split(":").collect();
                                     match parts[0] {
                                         "block" => {
-                                            let block:BlockNode = serde_json::from_str(parts[1]).unwrap();
+                                            let block: BlockNode =
+                                                serde_json::from_str(parts[1]).unwrap();
                                             p2p_clone.lock().unwrap().recv_msg_count += 1;
                                             sender.send(msg).unwrap();
                                         }
                                         "tx" => {
-                                            let tx:Transaction = serde_json::from_str(parts[1]).unwrap();
+                                            let tx: Transaction =
+                                                serde_json::from_str(parts[1]).unwrap();
                                             p2p_clone.lock().unwrap().recv_msg_count += 1;
                                             sender.send(msg).unwrap();
                                         }
                                         "block_id" => {
-                                            let block_id: BlockId = serde_json::from_str(parts[1]).unwrap();
-                                            let neighbors_len = p2p_clone.lock().unwrap().neighbors.len();
-                                            let random_neighbor_index = thread_rng().gen_range(0..neighbors_len);
-                                            let random_neighbor = &p2p_clone.lock().unwrap().neighbors[random_neighbor_index];
+                                            let block_id: BlockId =
+                                                serde_json::from_str(parts[1]).unwrap();
+                                            let neighbors_len =
+                                                p2p_clone.lock().unwrap().neighbors.len();
+                                            let random_neighbor_index =
+                                                thread_rng().gen_range(0..neighbors_len);
+                                            let random_neighbor =
+                                                &p2p_clone.lock().unwrap().neighbors
+                                                    [random_neighbor_index];
                                             let msg = format!("block_id:{}", parts[1]);
-                                            let socket_string = format!("{}:{}", &random_neighbor.ip, &random_neighbor.port);
+                                            let socket_string = format!(
+                                                "{}:{}",
+                                                &random_neighbor.ip, &random_neighbor.port
+                                            );
                                             match TcpStream::connect(socket_string) {
                                                 Ok(mut stream) => {
                                                     let mut writer = BufWriter::new(&stream);
@@ -234,30 +244,30 @@ impl P2PNetwork {
                     }
                 }
             });
-        } 
-        
+        }
 
-         // 8. return the created P2PNetwork instance and the mpsc channels
+        // 8. return the created P2PNetwork instance and the mpsc channels
         (
             p2p_network,
-            block_receiver, 
-            tx_receiver, 
-            block_sender, 
+            block_receiver,
+            tx_receiver,
+            block_sender,
             tx_sender,
-            block_id_sender
+            block_id_sender,
         )
-        
     }
 
     /// Get status information of the P2PNetwork for debug printing.
     pub fn get_status(&self) -> BTreeMap<String, String> {
         // Please fill in the blank
-        // For debugging purpose, you can return any dictionary of strings as the status of the network. 
+        // For debugging purpose, you can return any dictionary of strings as the status of the network.
         // It should be displayed in the Client UI eventually.
-        todo!();
-        
+        // todo!();
+        let mut status = BTreeMap::new();
+        status.insert("#address".to_string(), self.address.ip.to_string());
+
+        status.insert("#recv_msg".to_string(), self.recv_msg_count.to_string());
+        status.insert("#send_msg".to_string(), self.send_msg_count.to_string());
+        status
     }
-
 }
-
-

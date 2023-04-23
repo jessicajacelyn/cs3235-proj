@@ -152,8 +152,9 @@ fn main() {
 
                 // Get sender from data_string
                 // Remove the first and last three characters
-                let data_string = data_string[3..data_string.len() - 3].to_string();
+                let data_string = data_string[2..data_string.len() - 2].to_string();
                 let split_data_string = data_string.split("\",\"").collect::<Vec<&str>>();
+                // println!("{:?}", split_data_string);
                 let sender_id = split_data_string[0].to_string();
                 let receiver_id = split_data_string[1].to_string();
                 let msg = split_data_string[2].to_string();

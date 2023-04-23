@@ -307,7 +307,6 @@ fn main() {
         .read_line(&mut wallet_response)
         .unwrap();
     let wallet_response: IPCMessageRespWallet = serde_json::from_str(&wallet_response).unwrap();
-    println!("Wallet response: {:?}", wallet_response);
 
     match wallet_response {
         IPCMessageRespWallet::UserInfo(name, id) => {

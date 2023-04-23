@@ -1,1 +1,0 @@
-(Arc<std::sync::Mutex<P2PNetwork>>, std::sync::mpsc::Receiver<BlockNode>, std::sync::mpsc::Receiver<Transaction>, std::sync::mpsc::Sender<BlockNode>, std::sync::mpsc::Sender<Transaction>, std::sync::mpsc::Sender<std::string::String>)
