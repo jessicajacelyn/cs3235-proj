@@ -8,14 +8,14 @@
 /// However, you can also run it directly from the command line to test it.
 /// You can see detailed instructions in the comments below.
 mod nakamoto;
-use lib_chain::block::{Signature, Transaction};
+use lib_chain::block::{BlockTree, Signature, Transaction};
 use nakamoto::Nakamoto;
 
 use seccompiler::BpfMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{self, Write, BufRead};
+use std::io::{self, BufRead, Write};
 
 // Read a string from a file (to help you debug)
 fn read_string_from_file(filepath: &str) -> String {
@@ -101,11 +101,11 @@ fn main() {
         let filter_map: BpfMap = seccompiler::compile_from_json(
             read_string_from_file(&policy_path).as_bytes(),
             std::env::consts::ARCH.try_into().unwrap(),
-            )
-            .unwrap();
-            let filter = filter_map.get("main_thread").unwrap();
-    
-            seccompiler::apply_filter(&filter).unwrap();
+        )
+        .unwrap();
+        let filter = filter_map.get("main_thread").unwrap();
+
+        seccompiler::apply_filter(&filter).unwrap();
     }
 
     // The main logic of the bin_nakamoto starts here
@@ -117,58 +117,111 @@ fn main() {
     // Loop over stdin and handle IPC messages
     let mut nakamoto: Option<Nakamoto> = None;
     let stdin = io::stdin();
-    for line in stdin.lock().lines(){
+    for line in stdin.lock().lines() {
         let input = line.unwrap();
-        let req: IPCMessageReq = serde_json::from_str(&input).expect("Failed to parse input as IPCMessageReq");
+        let req: IPCMessageReq =
+            serde_json::from_str(&input).expect("Failed to parse input as IPCMessageReq");
         let response = match req {
             IPCMessageReq::Initialize(blocktree_json, tx_pool_json, config_json) => {
                 // Initialize the Nakamoto instance using the given (blocktree_json, tx_pool_json, config_json)
-                nakamoto = Some(Nakamoto::create_nakamoto(blocktree_json, tx_pool_json, config_json));
-                IPCMessageResp::Initialized;
-        
+                nakamoto = Some(Nakamoto::create_nakamoto(
+                    blocktree_json,
+                    tx_pool_json,
+                    config_json,
+                ));
+                drop(IPCMessageResp::Initialized);
             }
             IPCMessageReq::GetAddressBalance(user_id) => {
-                // Get the balance of the given address (user_id)
-                //let balance = nakamoto.get_address_balance(user_id);
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
-                //IPCMessageResp::AddressBalance(user_id, balance);
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
+                let chain = nakamoto.get_serialized_chain();
+                // Deserialize the chain
+                let deserialized_chain: BlockTree = serde_json::from_str(&chain).unwrap();
+                // Get the balance of the given address
+                let balance = deserialized_chain
+                    .finalized_balance_map
+                    .get(&user_id)
+                    .unwrap();
+
+                IPCMessageResp::AddressBalance(user_id, *balance);
             }
             IPCMessageReq::PublishTx(data_string, signature) => {
                 // Publish a transaction to the network (data_string, signature)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
-                // create transaction instance
-                IPCMessageResp::PublishTxDone;
+
+                // Get sender from data_string
+                // Remove the first and last three characters
+                let data_string = data_string[3..data_string.len() - 3].to_string();
+                let split_data_string = data_string.split("\",\"").collect::<Vec<&str>>();
+                let sender_id = split_data_string[0].to_string();
+                let receiver_id = split_data_string[1].to_string();
+                let msg = split_data_string[2].to_string();
+
+                // Create a transaction instance
+                let tx = Transaction {
+                    sender: sender_id,
+                    receiver: receiver_id,
+                    message: msg,
+                    sig: signature,
+                };
+                // Publish to the network
+                let nakamoto = nakamoto.as_mut().unwrap();
+                nakamoto.publish_tx(tx);
+
+                drop(IPCMessageResp::PublishTxDone);
             }
             IPCMessageReq::RequestBlock(block_id) => {
-                // Get the block data of the given block_id
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
+
+                let chain = nakamoto.get_serialized_chain();
+                // Deserialize the chain
+                let deserialized_chain: BlockTree = serde_json::from_str(&chain).unwrap();
+                // Get the block data of the given block_id and serialize it
+                let block_data = deserialized_chain.all_blocks.get(&block_id).unwrap();
+                let serialized_block_data = serde_json::to_string(&block_data).unwrap();
+
                 //create block instance
-                IPCMessageResp::BlockData(block_id);
+                IPCMessageResp::BlockData(serialized_block_data);
             }
             IPCMessageReq::RequestNetStatus => {
                 // Get the network status (for debugging)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
                 IPCMessageResp::NetStatus(nakamoto.get_network_status());
             }
-            IPCMessageReq::RequestChainStatus =>{
+            IPCMessageReq::RequestChainStatus => {
                 // Get the chain status (for debugging)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
                 IPCMessageResp::ChainStatus(nakamoto.get_chain_status());
             }
             IPCMessageReq::RequestMinerStatus => {
                 // Get the miner status (for debugging)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
                 IPCMessageResp::MinerStatus(nakamoto.get_miner_status());
             }
             IPCMessageReq::RequestTxPoolStatus => {
                 // Get the tx pool status (for debugging)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
                 IPCMessageResp::TxPoolStatus(nakamoto.get_txpool_status());
             }
             IPCMessageReq::RequestStateSerialization => {
                 // Get the state serialization (including BlockTree and TxPool)
-                let nakamoto = nakamoto.as_ref().expect("Nakamoto instance not initialized");
-                IPCMessageResp::StateSerialization(nakamoto.get_serialized_chain(), nakamoto.get_serialized_txpool());
+                let nakamoto = nakamoto
+                    .as_ref()
+                    .expect("Nakamoto instance not initialized");
+                IPCMessageResp::StateSerialization(
+                    nakamoto.get_serialized_chain(),
+                    nakamoto.get_serialized_txpool(),
+                );
             }
             IPCMessageReq::Quit => {
                 // Quit the program
