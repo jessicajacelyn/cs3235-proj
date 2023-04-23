@@ -59,7 +59,14 @@ impl NetChannelTCP {
     /// Return an error string if the connection fails.
     pub fn from_addr(addr: &NetAddress) -> Result<Self,String> {
         // Please fill in the blank
-        todo!();
+        //todo!();
+        let stream = TcpStream::connect(format!("{}:{}", addr.ip, addr.port))
+            .map_err(|e| format!("Error connecting to address {}:{}", addr.ip, addr.port))?;
+        let reader = BufReader::new(stream.try_clone().unwrap());
+        Ok(Self {
+            stream,
+            reader
+        })
         
     }
 
@@ -67,7 +74,12 @@ impl NetChannelTCP {
     /// This is useful for creating a NetChannelTCP instance from the listener side.
     pub fn from_stream(stream: TcpStream) -> Self {
         // Please fill in the blank
-        todo!();
+        //todo!();
+        let reader = BufReader::new(stream.try_clone().unwrap());
+        Self {
+            stream,
+            reader
+        }
         
     }
 
@@ -75,7 +87,11 @@ impl NetChannelTCP {
     /// This is useful if you have multiple threads dealing with reading and writing to the TCP channel.
     pub fn clone_channel(&mut self) -> Self {
         // Please fill in the blank
-        todo!();
+        //todo!();
+        Self {
+            stream: self.stream.try_clone().unwrap(),
+            reader: BufReader::new(self.stream.try_clone().unwrap()),
+        }
         
     }
 
@@ -84,7 +100,13 @@ impl NetChannelTCP {
     /// Otherwise, parse the line as a NetMessage and return it.
     pub fn read_msg(&mut self) -> Option<NetMessage> {
         // Please fill in the blank
-        todo!();
+        //todo!();
+        let mut line = String::new();
+        match self.reader.read_line(&mut line) {
+            Ok(0) => None,
+            Ok(_) => serde_json::from_str(&line.trim()).ok(),
+            Err(_) => None,
+        }
         
     }
 
@@ -92,7 +114,10 @@ impl NetChannelTCP {
     /// The message is serialized to a one-line JSON string and a newline is appended in the end.
     pub fn write_msg(&mut self, msg: NetMessage) -> () {
         // Please fill in the blank
-        
+        let serialized_msg = serde_json::to_string(&msg).unwrap();
+        let mut buf = serialized_msg.as_bytes().to_vec();
+        buf.push(b'\n');
+        self.stream.write_all(&buf).unwrap();
     }
 }
 

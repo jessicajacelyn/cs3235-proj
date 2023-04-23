@@ -12,11 +12,16 @@
 use lib_chain::block::{BlockNode, Transaction, BlockId, TxId};
 use crate::netchannel::*;
 use std::collections::{HashMap, BTreeMap, HashSet};
-use std::convert;
-use std::net::TcpListener;
-use std::sync::mpsc::{Receiver, Sender};
+use std::io::{BufReader, Read, Result, BufWriter, Write, BufRead};
+use std::{convert, io};
+use std::net::{TcpListener, TcpStream, SocketAddr, ToSocketAddrs, SocketAddrV4, Ipv4Addr};
+use std::sync::mpsc::{Receiver, Sender, channel, TryRecvError};
 use std::thread;
 use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
+use futures::{select, stream};
+use rand::thread_rng;
+use rand::Rng;
 
 /// The struct to represent statistics of a peer-to-peer network.
 pub struct P2PNetwork {
@@ -30,8 +35,8 @@ pub struct P2PNetwork {
     pub neighbors: Vec<NetAddress>,
 }
 
-
 impl P2PNetwork {
+
     /// Creates a new P2PNetwork instance and associated FIFO communication channels.
     /// There are 5 FIFO channels. 
     /// Those channels are used for communication within the process.
@@ -62,7 +67,185 @@ impl P2PNetwork {
         // 6. create threads to listen to messages from neighbors
         // 7. create threads to distribute received messages (send to channels or broadcast to neighbors)
         // 8. return the created P2PNetwork instance and the mpsc channels
-        todo!();
+
+        // 1. create a P2PNetwork instance
+        let p2p_network = P2PNetwork {
+            send_msg_count: 0,
+            recv_msg_count: 0,
+            address: address.clone(),
+            neighbors: neighbors.clone(),
+        };
+        
+        // 2. create mpsc channels for sending and receiving messages
+
+        let (block_sender, block_receiver) = channel();
+        let (tx_sender, tx_receiver) = channel();
+        let (block_id_sender, block_id_receiver) = channel();
+
+        // 3. create a thread for accepting incoming TCP connections from neighbors
+        
+        let p2p_network = Arc::new(Mutex::new(p2p_network));
+        let p2p_clone = p2p_network.clone();
+        let block_sender_clone: Sender<BlockNode> = block_sender.clone();
+        let tx_sender_clone: Sender<Transaction> = tx_sender.clone();
+        let block_id_sender_clone : Sender<BlockId> = block_id_sender.clone();
+        thread::spawn(move || {
+            let socket_string = format!("{}:{}", &address.ip, &address.port);
+            let listener = TcpListener::bind(socket_string).expect("failed to bind TCP listener");
+            for stream in listener.incoming() {
+                match stream {
+                    Ok(stream) => {
+                        let p2p = p2p_clone.clone();
+                        let block_sender = block_sender_clone.clone();
+                        let tx_sender = tx_sender_clone.clone();
+                        let block_id_sender = block_id_sender_clone.clone();
+                        thread::spawn(move || {
+                            let mut reader = BufReader::new(&stream);
+                            let mut writer = BufWriter::new(&stream);
+
+                            loop {
+                                let mut msg = String::new();
+                                match reader.read_line(&mut msg) {
+                                    Ok(_) => {
+                                        let parts: Vec<&str> = msg.trim().split(":").collect();
+                                        match parts[0] {
+                                            "block" => {
+                                                let block = serde_json::from_str(parts[1]).unwrap();
+                                                block_sender.send(block).unwrap();
+                                            }
+                                            "tx" => {
+                                                let tx = serde_json::from_str(parts[1]).unwrap();
+                                                tx_sender.send(tx).unwrap();
+                                            }
+                                            "block_id" => {
+                                                let block_id = serde_json::from_str(parts[1]).unwrap();
+                                                block_id_sender.send(block_id).unwrap();
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Err(_) => {
+                                        break;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                    }
+                }
+            }
+        });
+
+        
+        // 4. create TCP connections to all neighbors
+        let mut senders: Vec<Sender<String>> = Vec::new();
+
+        for neighbor in &neighbors {
+            let socket_string = format!("{}:{}", &neighbor.ip, &neighbor.port);
+            match TcpStream::connect(socket_string) {
+                Ok(stream) => {
+                    let (sender, receiver) = channel();
+                    senders.push(sender);
+                    // Spawn a thread to send messages over the channel
+                    std::thread::spawn(move || {
+                        let mut writer = BufWriter::new(&stream);
+                        loop {
+                            match receiver.recv() {
+                                Ok(msg) => {
+                                    if let Err(e) = writer.write(msg.as_bytes()) {
+                                        println!("Error: {}", e);
+                                        break;
+                                    }
+                                    if let Err(e) = writer.flush() {
+                                        println!("Error: {}", e);
+                                        break;
+                                    }
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                    });
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
+            }
+        }
+
+        // step 5 - 7
+        for neighbor in &neighbors {
+            let p2p_clone = p2p_network.clone();
+            let neighbor_clone = neighbor.clone();
+            let sender = senders.pop().unwrap();
+            thread::spawn(move || {
+                let socket_string = format!("{}:{}", &neighbor_clone.ip, &neighbor_clone.port);
+                match TcpStream::connect(socket_string) {
+                    Ok(stream) => {
+                        let mut reader = BufReader::new(&stream);
+                        let mut writer = BufWriter::new(&stream);
+
+                        loop {
+                            let mut msg = String::new();
+                            match reader.read_line(&mut msg) {
+                                Ok(_) => {
+                                    let parts: Vec<&str> = msg.trim().split(":").collect();
+                                    match parts[0] {
+                                        "block" => {
+                                            let block:BlockNode = serde_json::from_str(parts[1]).unwrap();
+                                            p2p_clone.lock().unwrap().recv_msg_count += 1;
+                                            sender.send(msg).unwrap();
+                                        }
+                                        "tx" => {
+                                            let tx:Transaction = serde_json::from_str(parts[1]).unwrap();
+                                            p2p_clone.lock().unwrap().recv_msg_count += 1;
+                                            sender.send(msg).unwrap();
+                                        }
+                                        "block_id" => {
+                                            let block_id: BlockId = serde_json::from_str(parts[1]).unwrap();
+                                            let neighbors_len = p2p_clone.lock().unwrap().neighbors.len();
+                                            let random_neighbor_index = thread_rng().gen_range(0..neighbors_len);
+                                            let random_neighbor = &p2p_clone.lock().unwrap().neighbors[random_neighbor_index];
+                                            let msg = format!("block_id:{}", parts[1]);
+                                            let socket_string = format!("{}:{}", &random_neighbor.ip, &random_neighbor.port);
+                                            match TcpStream::connect(socket_string) {
+                                                Ok(mut stream) => {
+                                                    let mut writer = BufWriter::new(&stream);
+                                                    writer.write(msg.as_bytes()).unwrap();
+                                                    writer.flush().unwrap();
+                                                }
+                                                Err(e) => {
+                                                    println!("Error: {}", e);
+                                                }
+                                            }
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                Err(_) => {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                    }
+                }
+            });
+        } 
+        
+
+         // 8. return the created P2PNetwork instance and the mpsc channels
+        (
+            p2p_network,
+            block_receiver, 
+            tx_receiver, 
+            block_sender, 
+            tx_sender,
+            block_id_sender
+        )
         
     }
 
