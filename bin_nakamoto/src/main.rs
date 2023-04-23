@@ -129,7 +129,8 @@ fn main() {
                     tx_pool_json,
                     config_json,
                 ));
-                drop(IPCMessageResp::Initialized);
+
+                IPCMessageResp::Initialized
             }
             IPCMessageReq::GetAddressBalance(user_id) => {
                 let nakamoto = nakamoto
@@ -144,7 +145,7 @@ fn main() {
                     .get(&user_id)
                     .unwrap();
 
-                IPCMessageResp::AddressBalance(user_id, *balance);
+                IPCMessageResp::AddressBalance(user_id, *balance)
             }
             IPCMessageReq::PublishTx(data_string, signature) => {
                 // Publish a transaction to the network (data_string, signature)
@@ -168,7 +169,7 @@ fn main() {
                 let nakamoto = nakamoto.as_mut().unwrap();
                 nakamoto.publish_tx(tx);
 
-                drop(IPCMessageResp::PublishTxDone);
+                IPCMessageResp::PublishTxDone
             }
             IPCMessageReq::RequestBlock(block_id) => {
                 let nakamoto = nakamoto
@@ -183,35 +184,35 @@ fn main() {
                 let serialized_block_data = serde_json::to_string(&block_data).unwrap();
 
                 //create block instance
-                IPCMessageResp::BlockData(serialized_block_data);
+                IPCMessageResp::BlockData(serialized_block_data)
             }
             IPCMessageReq::RequestNetStatus => {
                 // Get the network status (for debugging)
                 let nakamoto = nakamoto
                     .as_ref()
                     .expect("Nakamoto instance not initialized");
-                IPCMessageResp::NetStatus(nakamoto.get_network_status());
+                IPCMessageResp::NetStatus(nakamoto.get_network_status())
             }
             IPCMessageReq::RequestChainStatus => {
                 // Get the chain status (for debugging)
                 let nakamoto = nakamoto
                     .as_ref()
                     .expect("Nakamoto instance not initialized");
-                IPCMessageResp::ChainStatus(nakamoto.get_chain_status());
+                IPCMessageResp::ChainStatus(nakamoto.get_chain_status())
             }
             IPCMessageReq::RequestMinerStatus => {
                 // Get the miner status (for debugging)
                 let nakamoto = nakamoto
                     .as_ref()
                     .expect("Nakamoto instance not initialized");
-                IPCMessageResp::MinerStatus(nakamoto.get_miner_status());
+                IPCMessageResp::MinerStatus(nakamoto.get_miner_status())
             }
             IPCMessageReq::RequestTxPoolStatus => {
                 // Get the tx pool status (for debugging)
                 let nakamoto = nakamoto
                     .as_ref()
                     .expect("Nakamoto instance not initialized");
-                IPCMessageResp::TxPoolStatus(nakamoto.get_txpool_status());
+                IPCMessageResp::TxPoolStatus(nakamoto.get_txpool_status())
             }
             IPCMessageReq::RequestStateSerialization => {
                 // Get the state serialization (including BlockTree and TxPool)
@@ -221,12 +222,11 @@ fn main() {
                 IPCMessageResp::StateSerialization(
                     nakamoto.get_serialized_chain(),
                     nakamoto.get_serialized_txpool(),
-                );
+                )
             }
             IPCMessageReq::Quit => {
                 // Quit the program
-                IPCMessageResp::Quitting;
-                break;
+                IPCMessageResp::Quitting
             }
         };
         let output = serde_json::to_string(&response).unwrap();

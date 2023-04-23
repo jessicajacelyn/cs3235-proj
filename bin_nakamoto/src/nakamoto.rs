@@ -131,7 +131,7 @@ impl Nakamoto {
         let msg = HashMap::from([("Notify".to_string(), msg.clone())]);
         println!("{}", serde_json::to_string(&msg).unwrap());
     }
-    
+
     /// Create a Nakamoto instance given the serialized chain, tx pool and config as three json strings.
     pub fn create_nakamoto(chain_str: String, tx_pool_str: String, config_str: String) -> Nakamoto {
         // Please fill in the blank
@@ -166,13 +166,13 @@ impl Nakamoto {
         //todo
 
         // Return the Nakamoto instance that holds pointers to the chain, the miner, the network and the tx pool.
-        return Nakamoto {
+        Nakamoto {
             chain_p: chain,
             miner_p: arc_miner,
             network_p: network.0,
             tx_pool_p: tx_pool,
             trans_tx: network.4,
-        };
+        }
     }
 
     /// Get the status of the network as a dictionary of strings. For debugging purpose.

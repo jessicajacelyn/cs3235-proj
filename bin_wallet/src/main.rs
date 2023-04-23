@@ -1,4 +1,4 @@
-// This file is part of the project for the module CS3235 by Prateek 
+// This file is part of the project for the module CS3235 by Prateek
 // Copyright 2023 Ruishi Li, Bo Wang, and Prateek Saxena.
 // Please do not distribute.
 
@@ -8,18 +8,16 @@
 // However, you can run it directly from the command line to test it.
 // You can see detailed instructions in the comments below.
 
-
 mod wallet;
-use std::fs;
-use std::io::{self,Write, BufRead};
 use seccompiler::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::*;
+use std::fs;
+use std::io::{self, BufRead, Write};
 
 /// Read a string from a file (help with debugging)
 fn read_string_from_file(filepath: &str) -> String {
-    let contents = fs::read_to_string(filepath)
-        .expect(&("Cannot read ".to_owned() + filepath));
+    let contents = fs::read_to_string(filepath).expect(&("Cannot read ".to_owned() + filepath));
     contents
 }
 
@@ -55,7 +53,7 @@ enum IPCMessageReq {
     /// Verify the provided (`data_string`, `signature_in_base64`) using the public key
     VerifyRequest(String, String),
     /// Get the user info
-    GetUserInfo
+    GetUserInfo,
 }
 
 /// The enum representing IPC message responses to the stdout
@@ -70,7 +68,7 @@ enum IPCMessageResp {
     /// The response to a verify request (isSuccess, DataString)
     VerifyResponse(bool, String),
     /// The response to the get user info request (username, user_id). User Id is transformed from the public key.
-    UserInfo(String, String)
+    UserInfo(String, String),
 }
 
 fn main() {
@@ -79,16 +77,15 @@ fn main() {
     // Otherwise, it will proceed to the normal execution
     let maybe_policy_path = std::env::args().nth(1);
     if let Some(policy_path) = maybe_policy_path {
-       // If the first param is provided, read the seccomp config and apply it
-       let filter_map: BpfMap = seccompiler::compile_from_json(
-        read_string_from_file(&policy_path).as_bytes(),
-        std::env::consts::ARCH.try_into().unwrap(),
+        // If the first param is provided, read the seccomp config and apply it
+        let filter_map: BpfMap = seccompiler::compile_from_json(
+            read_string_from_file(&policy_path).as_bytes(),
+            std::env::consts::ARCH.try_into().unwrap(),
         )
         .unwrap();
         let filter = filter_map.get("main_thread").unwrap();
 
         seccompiler::apply_filter(&filter).unwrap();
-        
     }
 
     // The main logic of the bin_wallet starts here
@@ -103,13 +100,15 @@ fn main() {
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
         let input = line.unwrap();
-        let request: IPCMessageReq = serde_json::from_str(&input).expect("Failed to parse input as IPCMessageReq");
+        let request: IPCMessageReq =
+            serde_json::from_str(&input).expect("Failed to parse input as IPCMessageReq");
         let response = match request {
-            IPCMessageReq::Quit => {
-                IPCMessageResp::Quitting
-            }
+            IPCMessageReq::Quit => IPCMessageResp::Quitting,
             IPCMessageReq::Initialize(wallet_json) => {
-                wallet = Some(serde_json::from_str(&wallet_json).expect("Failed to parse wallet_json as Wallet"));
+                wallet = Some(
+                    serde_json::from_str(&wallet_json)
+                        .expect("Failed to parse wallet_json as Wallet"),
+                );
                 IPCMessageResp::Initialized
             }
             IPCMessageReq::SignRequest(data) => {
@@ -123,6 +122,7 @@ fn main() {
                 IPCMessageResp::VerifyResponse(is_valid, data)
             }
             IPCMessageReq::GetUserInfo => {
+                println!("iefjerjoerjgoerjgoerj");
                 let wallet = wallet.as_ref().expect("Wallet not initialized");
                 let user_id = wallet.get_user_id();
                 let username = wallet.get_user_name();
@@ -142,8 +142,10 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use crate::{wallet::Wallet, write_string_to_file, IPCMessageReq, IPCMessageResp, read_string_from_file};
-    
+    use crate::{
+        read_string_from_file, wallet::Wallet, write_string_to_file, IPCMessageReq, IPCMessageResp,
+    };
+
     /// This test generates a new wallet and writes it to a file.
     #[test]
     fn generate_new_wallet() {
@@ -155,7 +157,9 @@ mod test {
     /// This test reads a wallet from a file and uses it to sign and verify a message.
     #[test]
     fn test_bin_wallet_signing_and_verifying() {
-        let bin_wallet: Wallet = serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.B.json")).unwrap();
+        let bin_wallet: Wallet =
+            serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.B.json"))
+                .unwrap();
         println!("Private key Pem:\n{}\n", bin_wallet.priv_key_pem);
         println!("Public key Pem:\n{}\n", bin_wallet.pub_key_pem);
         let msg = "hello world";
@@ -163,15 +167,16 @@ mod test {
 
         let verify_result = bin_wallet.verify(msg, &sig64);
         println!("msg: {}\nsig64: {}\nverify: {}", msg, sig64, verify_result);
-
     }
 
     /// This test reads a wallet from a file and uses it to verify a message signed by a reference implementation.
-    #[test] 
+    #[test]
     fn test_bin_wallet_verifying_alice() {
         let msg = "[\"MDgCMQCqrJ1yIJ7cDQIdTuS+4CkKn/tQPN7bZFbbGCBhvjQxs71f6Vu+sD9eh8JGpfiZSckCAwEAAQ==\",\"MDgCMQDOpK8YWmcg8ffNF/O7xlBDq/DBdoUnc4yyWrV0y/X3LF+dddjaGksXzGl3tHskpgkCAwEAAQ==\",\"SEND $300   // By Alice   // 1678250102871\"]".to_string();
         let sig = "l8gsKxmAUzhgqbVqGlXaO69+Qhr87QthvZjUbYZXvnb+tanxCi8wm3c5UjHZ+HKm".to_string();
-        let bin_wallet: Wallet = serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.A.json")).unwrap();
+        let bin_wallet: Wallet =
+            serde_json::from_str(&read_string_from_file("../tests/_secrets/Wallet.A.json"))
+                .unwrap();
         let verify_result = bin_wallet.verify(&msg, &sig);
         println!("msg: {}\nsig64: {}\nverify: {}", msg, sig, verify_result);
         assert!(verify_result);
@@ -181,4 +186,3 @@ mod test {
         assert!(!verify_result);
     }
 }
-

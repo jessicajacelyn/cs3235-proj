@@ -157,10 +157,10 @@ fn main() {
         .take()
         .expect("Failed to get stdout of bin_nakamoto");
 
-    let nakamoto_stderr = bin_nakamoto
-        .stderr
-        .take()
-        .expect("Failed to get stderr of bin_nakamoto");
+    // let nakamoto_stderr = bin_nakamoto
+    //     .stderr
+    //     .take()
+    //     .expect("Failed to get stderr of bin_nakamoto");
 
     // Get stdin and stdout of bin_wallet process
     let bin_wallet_stdin_p = Arc::new(Mutex::new(
@@ -174,16 +174,16 @@ fn main() {
         .take()
         .expect("Failed to get stdout of bin_wallet");
 
-    let bin_wallet_stderr = bin_wallet
-        .stderr
-        .take()
-        .expect("Failed to get stderr of bin_wallet");
+    // let bin_wallet_stderr = bin_wallet
+    //     .stderr
+    //     .take()
+    //     .expect("Failed to get stderr of bin_wallet");
 
     // Create buffer readers if necessary
-    let mut bin_nakamoto_reader = std::io::BufReader::new(nakamoto_stdout);
-    let mut bin_wallet_reader = std::io::BufReader::new(bin_wallet_stdout);
-    let mut nakamoto_stderr_reader = std::io::BufReader::new(nakamoto_stderr);
-    let mut wallet_stderr_reader = std::io::BufReader::new(bin_wallet_stderr);
+    let bin_nakamoto_reader = Arc::new(Mutex::new(std::io::BufReader::new(nakamoto_stdout)));
+    let bin_wallet_reader = Arc::new(Mutex::new(std::io::BufReader::new(bin_wallet_stdout)));
+    // let mut nakamoto_stderr_reader = std::io::BufReader::new(nakamoto_stderr);
+    // let mut wallet_stderr_reader = std::io::BufReader::new(bin_wallet_stderr);
 
     // Read folder path and get the files from the folder
     let folder_path = std::env::args().nth(2).unwrap();
@@ -226,12 +226,34 @@ fn main() {
     )
     .expect("Failed to write to bin_wallet stdin");
 
+    let mut wallet_response = String::new();
+    bin_wallet_reader
+        .lock()
+        .unwrap()
+        .read_line(&mut wallet_response)
+        .unwrap();
+    let wallet_response: IPCMessageRespWallet = serde_json::from_str(&wallet_response).unwrap();
+
+    match wallet_response {
+        IPCMessageRespWallet::Initialized => {
+            println!("Wallet initialized");
+        }
+        _ => panic!("Wallet initialization failed"),
+    }
+
     // Send initialization requests to bin_nakamoto
     let nakamoto_init_request = IPCMessageReqNakamoto::Initialize(
         read_string_from_file(&first_file),
-        read_string_from_file(&second_file),
         read_string_from_file(&third_file),
+        read_string_from_file(&second_file),
     );
+
+    // let nakamoto_init_request = IPCMessageReqNakamoto::Initialize(
+    //     read_string_from_file("./tests/nakamoto_config1_alone/BlockTree.json"),
+    //     read_string_from_file("./tests/nakamoto_config1_alone/TxPool.json"),
+    //     read_string_from_file("./tests/nakamoto_config1_alone/Config.json"),
+    // );
+
     let nakamoto_init_request_str = serde_json::to_string(&nakamoto_init_request).unwrap();
     writeln!(
         nakamoto_stdin_p.lock().unwrap(),
@@ -239,6 +261,23 @@ fn main() {
         nakamoto_init_request_str
     )
     .expect("Failed to write to bin_nakamoto stdin");
+
+    let mut nakamoto_response = String::new();
+
+    bin_nakamoto_reader
+        .lock()
+        .unwrap()
+        .read_line(&mut nakamoto_response)
+        .unwrap();
+
+    let nakamoto_response: IPCMessageRespNakamoto =
+        serde_json::from_str(&nakamoto_response).unwrap();
+    match nakamoto_response {
+        IPCMessageRespNakamoto::Initialized => {
+            println!("Nakamoto initialized");
+        }
+        _ => panic!("Nakamoto initialization failed"),
+    }
 
     let client_seccomp_path = std::env::args()
         .nth(1)
@@ -263,9 +302,13 @@ fn main() {
 
     let mut wallet_response = String::new();
     bin_wallet_reader
+        .lock()
+        .unwrap()
         .read_line(&mut wallet_response)
-        .expect("Failed to read from bin_wallet stdout");
+        .unwrap();
     let wallet_response: IPCMessageRespWallet = serde_json::from_str(&wallet_response).unwrap();
+    println!("Wallet response: {:?}", wallet_response);
+
     match wallet_response {
         IPCMessageRespWallet::UserInfo(name, id) => {
             user_name = name;
@@ -364,8 +407,10 @@ fn main() {
             loop {
                 let mut wallet_response = String::new();
                 bin_wallet_reader
+                    .lock()
+                    .unwrap()
                     .read_line(&mut wallet_response)
-                    .expect("Failed to read from bin_wallet stdout");
+                    .unwrap();
                 let wallet_response: IPCMessageRespWallet =
                     serde_json::from_str(&wallet_response).unwrap();
                 match wallet_response {
@@ -386,30 +431,30 @@ fn main() {
                             )
                             .expect("Failed to write to bin_nakamoto stdin");
                     }
-                    _ => panic!("Unexpected response from wallet"),
+                    _ => panic!("Fail at SignResponse"),
                 }
             }
         });
     }
 
     // Spawn a thread to read from stderr of bin_nakamoto and bin_wallet and add those lines to the UI (app.stderr_log) for easier debugging.
-    {
-        let app_arc = app_arc.clone();
-        thread::spawn(move || loop {
-            let mut nakamoto_stderr = String::new();
-            nakamoto_stderr_reader
-                .read_line(&mut nakamoto_stderr)
-                .expect("Failed to read from bin_nakamoto stderr");
-            let mut app = app_arc.lock().expect("Failed to acquire app mutex");
-            app.stderr_log.push(nakamoto_stderr);
+    // {
+    //     let app_arc = app_arc.clone();
+    //     thread::spawn(move || loop {
+    //         let mut nakamoto_stderr = String::new();
+    //         nakamoto_stderr_reader
+    //             .read_line(&mut nakamoto_stderr)
+    //             .expect("Failed to read from bin_nakamoto stderr");
+    //         let mut app = app_arc.lock().expect("Failed to acquire app mutex");
+    //         app.stderr_log.push(nakamoto_stderr);
 
-            let mut wallet_stderr = String::new();
-            wallet_stderr_reader
-                .read_line(&mut wallet_stderr)
-                .expect("Failed to read from bin_wallet stderr");
-            app.stderr_log.push(wallet_stderr);
-        });
-    }
+    //         let mut wallet_stderr = String::new();
+    //         wallet_stderr_reader
+    //             .read_line(&mut wallet_stderr)
+    //             .expect("Failed to read from bin_wallet stderr");
+    //         app.stderr_log.push(wallet_stderr);
+    //     });
+    // }
 
     // Spawn a thread to periodically request for status update from bin_nakamoto
     {
@@ -431,8 +476,10 @@ fn main() {
                 let mut app = app_arc.lock().expect("Failed to acquire app mutex");
                 let mut nakamoto_stdout = String::new();
                 bin_nakamoto_reader
+                    .lock()
+                    .unwrap()
                     .read_line(&mut nakamoto_stdout)
-                    .expect("Failed to read from bin_nakamoto stdout");
+                    .unwrap();
                 let nakamoto_stdout: IPCMessageRespNakamoto =
                     serde_json::from_str(&nakamoto_stdout).unwrap();
                 match nakamoto_stdout {
@@ -483,8 +530,10 @@ fn main() {
 
                 let mut nakamoto_response = String::new();
                 bin_nakamoto_reader
+                    .lock()
+                    .unwrap()
                     .read_line(&mut nakamoto_response)
-                    .expect("Failed to read from bin_nakamoto stdout");
+                    .unwrap();
                 let nakamoto_response: IPCMessageRespNakamoto =
                     serde_json::from_str(&nakamoto_response).unwrap();
 
@@ -637,3 +686,11 @@ fn main() {
         .expect("failed to wait on child bin_wallet");
     eprintln!("--- bin_wallet ecode: {}", ecode2);
 }
+// ./target/debug/bin_client \
+// ./bin_client/policies/seccomp_client.json \
+// ./tests/nakamoto_config1_alone \
+// ./bin_client/policies/seccomp_nakamoto.json \
+// ./tests/_secrets/Wallet.A.json \
+// ./bin_client/policies/seccomp_wallet.json
+// Bob’s user id:
+// MDgCMQDZDExOs97sRTnQLYtgFjDKpDzmO7Uo5HPP62u6MDimXBpZtGxtwa8dhJe5NBIsJjUCAwEAAQ==

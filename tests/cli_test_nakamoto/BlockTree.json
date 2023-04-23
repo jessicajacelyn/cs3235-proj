@@ -9,11 +9,7 @@
       },
       "transactions_block": {
         "merkle_tree": {
-          "hashes": [
-            [
-              "one tx's hash"
-            ]
-          ]
+          "hashes": [["one tx's hash"]]
         },
         "transactions": [
           {
@@ -34,11 +30,7 @@
       },
       "transactions_block": {
         "merkle_tree": {
-          "hashes": [
-            [
-              "one tx's hash"
-            ]
-          ]
+          "hashes": [["one tx's hash"]]
         },
         "transactions": [
           {
@@ -65,11 +57,7 @@
       },
       "transactions_block": {
         "merkle_tree": {
-          "hashes": [
-            [
-              "one tx's hash"
-            ]
-          ]
+          "hashes": [["one tx's hash"]]
         },
         "transactions": [
           {
