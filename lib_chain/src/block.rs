@@ -458,7 +458,25 @@ impl BlockTree {
         // Please fill in the blank
         // For debugging purpose, you can return any dictionary of strings as the status of the BlockTree.
         // It should be displayed in the Client UI eventually.
-        todo!();
+        // todo!();
+        let mut status = BTreeMap::new();
+        status.insert("#blocks".to_string(), self.all_blocks.len().to_string());
+        status.insert("#orphans".to_string(), self.orphans.len().to_string());
+        status.insert(
+            "finalized_id".to_string(),
+            self.finalized_block_id.len().to_string(),
+        );
+        status.insert("root_id".to_string(), self.root_id.len().to_string());
+        status.insert(
+            "working_depth".to_string(),
+            self.block_depth[&self.working_block_id].to_string(),
+        );
+        status.insert(
+            "working_id".to_string(),
+            self.working_block_id.len().to_string(),
+        );
+
+        status
     }
 }
 
