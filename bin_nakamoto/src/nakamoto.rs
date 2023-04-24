@@ -154,8 +154,8 @@ impl Nakamoto {
 
         // Create the miner and the network according to the config.
         let miner = Miner {
-            thread_count: config.miner_thread_count,
-            leading_zero_len: config.difficulty_leading_zero_len,
+            thread_count: 0,
+            leading_zero_len: 0,
             is_running: false,
         };
         let arc_miner = Arc::new(Mutex::new(miner));

@@ -183,19 +183,9 @@ impl Miner {
         // It should be displayed in the Client UI eventually.
         //todo!();
         let mut status = BTreeMap::new();
-        status.insert("Thread count".to_string(), self.thread_count.to_string());
-        status.insert(
-            "Leading zero length".to_string(),
-            self.leading_zero_len.to_string(),
-        );
-        status.insert(
-            "Is running".to_string(),
-            if self.is_running {
-                "Yes".to_string()
-            } else {
-                "No".to_string()
-            },
-        );
+        status.insert("#thread".to_string(), self.thread_count.to_string());
+        status.insert("difficulty".to_string(), self.leading_zero_len.to_string());
+        status.insert("is_running".to_string(), self.is_running.to_string());
         status
     }
 }

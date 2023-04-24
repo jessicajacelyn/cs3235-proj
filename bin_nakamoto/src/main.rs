@@ -231,6 +231,6 @@ fn main() {
             }
         };
         let output = serde_json::to_string(&response).unwrap();
-        println!("{}\n", output);
+        println!("{}", output);
     }
 }

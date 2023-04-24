@@ -264,8 +264,13 @@ impl P2PNetwork {
         // It should be displayed in the Client UI eventually.
         // todo!();
         let mut status = BTreeMap::new();
-        status.insert("#address".to_string(), self.address.ip.to_string());
-
+        let mut address = String::new();
+        let mut port = String::new();
+        port.push_str("ip: ");
+        port.push_str(&self.address.ip);
+        port.push_str(" port: ");
+        port.push_str(&self.address.port.to_string());
+        status.insert("#address".to_string(), port);
         status.insert("#recv_msg".to_string(), self.recv_msg_count.to_string());
         status.insert("#send_msg".to_string(), self.send_msg_count.to_string());
         status
